@@ -12,7 +12,18 @@ function Dashboard() {
   useEffect(() => {
     axios.get('http://localhost:8000/me', {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    }).then(res => setUser(res.data));
+    })
+      .then(res => setUser(res.data))
+      .catch(err => {
+        if (err.response && err.response.status === 401) {
+          alert('Session expired. Please log in again.');
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+        } else {
+          console.error('An error occurred:', err);
+          alert('An error occurred while fetching user data.');
+        }
+      });
   }, []);
 
   return (
