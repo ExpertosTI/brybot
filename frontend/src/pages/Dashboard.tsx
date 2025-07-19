@@ -19,7 +19,7 @@ function Dashboard() {
     <div>
       <h1>Dashboard</h1>
       <p>Welcome {user?.username}</p>
-      <button onClick={() => axios.post('/run-bot')}>Run Bot</button>
+      <button onClick={() => axios.post('http://localhost:8000/run-bot')}>Run Bot</button>
     </div>
   );
 }
