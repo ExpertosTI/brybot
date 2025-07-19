@@ -1,0 +1,3 @@
+- Consider 3, 5, 15 minute interval
+- Investigate whether or not platforms can determine if bot
+- Start building out UI/UX for user interacation
