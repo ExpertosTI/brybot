@@ -14,7 +14,11 @@ function Login() {
       localStorage.setItem('token', res.data.access_token);
       navigate('/dashboard');
     } catch (err) {
-      console.error('Login failed:', err);
+      if (axios.isAxiosError(err) && err.response) {
+        console.error('Login failed:', `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}`);
+      } else {
+        console.error('Login failed:', err);
+      }
       setError('Login failed. Please check your username and password.');
     }
   };
