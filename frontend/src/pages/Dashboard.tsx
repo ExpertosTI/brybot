@@ -18,7 +18,7 @@ function Dashboard() {
         if (err.response && err.response.status === 401) {
           alert('Session expired. Please log in again.');
           localStorage.removeItem('token');
-          window.location.href = '/login';
+          navigate('/login');
         } else {
           console.error('An error occurred:', err);
           alert('An error occurred while fetching user data.');
