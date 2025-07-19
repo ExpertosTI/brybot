@@ -84,5 +84,5 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=403, detail="Invalid token")
 
 @router.get("/topstep-token")
-def topsetep_login(current_user: str = Depends(get_current_user)):
+def topstep_login(current_user: str = Depends(get_current_user)):
     return {"token": get_session_token()}
