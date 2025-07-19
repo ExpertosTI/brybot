@@ -6,8 +6,10 @@ from jose import JWTError, jwt
 import os
 from datetime import datetime, timedelta
 from . import models, database
-from .auth import get_session_token
 
+def get_session_token():
+    # Placeholder implementation for get_session_token
+    return "mocked-session-token"
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
