@@ -19,7 +19,16 @@ function Dashboard() {
     <div>
       <h1>Dashboard</h1>
       <p>Welcome {user?.username}</p>
-      <button onClick={() => axios.post('http://localhost:8000/run-bot')}>Run Bot</button>
+      <button onClick={() => {
+        axios.post('http://localhost:8000/run-bot', {}, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }).then(() => {
+          alert('Bot started successfully!');
+        }).catch(err => {
+          console.error('Error starting bot:', err);
+          alert('Failed to start the bot. Please try again.');
+        });
+      }}>Run Bot</button>
     </div>
   );
 }
