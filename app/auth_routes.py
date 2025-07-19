@@ -62,26 +62,13 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(dat
 
 @router.get("/me")
 def read_users_me(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=403, detail="Invalid token")
-        return {"username": username}
-    except JWTError:
-        raise HTTPException(status_code=403, detail="Invalid token")
+    username = decode_jwt_token(token)
+    return {"username": username}
 
 # Dependency to get current user
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=403, detail="Invalid token")
-        return username
-    except JWTError:
-        raise HTTPException(status_code=403, detail="Invalid token")
+    return decode_jwt_token(token)
 
 @router.get("/topstep-token")
 def topstep_login(current_user: str = Depends(get_current_user)):
