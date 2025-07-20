@@ -5,9 +5,9 @@ from config import BASE_URL
 from app.auth import get_session_token
 import pandas as pd
 from datetime import datetime, timedelta
-from indicators import compute_indicators
+from app.indicators import compute_indicators
 from app.strategy import check_trade_signal
-from projectx import execute_trade, get_contract_id
+from app.projectx import execute_trade, get_contract_id
 from logger import log_trade
 import csv
 import os
@@ -15,8 +15,8 @@ import os
 router = APIRouter()
 
 def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=100):
-    end_time = datetime.utcnow() - timedelta(hours=24)
-    start_time = end_time - timedelta(hours=1)
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(days=30)
 
     url = f"{BASE_URL}/api/History/retrieveBars"
     payload = {
@@ -69,7 +69,7 @@ def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=10
     return df
 
 @router.get("/run-bot")
-def run_bot(symbol="RTYZ4", quantity=1, interval_seconds=60):
+def run_bot(symbol="", quantity=1, interval_seconds=60):
     print("📈 Starting bot loop at", datetime.now())
 
     token = get_session_token()

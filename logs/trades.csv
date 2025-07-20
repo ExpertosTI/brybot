@@ -88,3 +88,5 @@
 2025-07-19T08:40:50.724464,NQU5,BUY,1,23259.75,FAIL,"{'orderId': 1370126694, 'success': False, 'errorCode': 2, 'errorMessage': 'Outside of trading hours.'}"
 2025-07-19T08:41:51.653792,NQU5,BUY,1,23264.25,FAIL,"{'orderId': 1370126698, 'success': False, 'errorCode': 2, 'errorMessage': 'Outside of trading hours.'}"
 2025-07-19T08:42:52.611730,NQU5,BUY,1,23260.5,FAIL,"{'orderId': 1370126699, 'success': False, 'errorCode': 2, 'errorMessage': 'Outside of trading hours.'}"
+2025-07-20T13:25:04.619485,6BU5,BUY,1,1.3416,FAIL,"{'orderId': 1370131020, 'success': False, 'errorCode': 2, 'errorMessage': 'Outside of trading hours.'}"
+2025-07-20T13:26:05.532944,6BU5,BUY,1,1.3416,FAIL,"{'orderId': 1370131031, 'success': False, 'errorCode': 2, 'errorMessage': 'Outside of trading hours.'}"
