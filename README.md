@@ -29,4 +29,6 @@ DATABASE_URL=postgresql://postgres:password@localhost:5432/topstepdb
 TOPSTEP_USER=your@email.com
 TOPSTEP_API_KEY=your-api-key
 SECRET_KEY=your-secret
+ACCOUNT_ID=your-topstep-account-id
+TOPSTEP_ACCOUNT_ID=your-topstep-account-id
 ```
