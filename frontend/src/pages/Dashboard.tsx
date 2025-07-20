@@ -22,6 +22,9 @@ function Dashboard() {
   const [buyThreshold, setBuyThreshold] = useState<number>(30);
   const [sellThreshold, setSellThreshold] = useState<number>(70);
   const [autoTrade, setAutoTrade] = useState<boolean>(true);
+  const [quantity, setQuantity] = useState<number>(1);
+  const [intervalSeconds, setIntervalSeconds] = useState<number>(60);
+  const [countdown, setCountdown] = useState<number>(0);
   const [pendingTrade, setPendingTrade] = useState<TradePrompt | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const navigate = useNavigate();
@@ -71,6 +74,12 @@ function Dashboard() {
         setSellThreshold(70);
       });
   }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || countdown <= 0) return;
+    const id = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [countdown]);
 
   return (
     <div className="container">
@@ -143,13 +152,35 @@ function Dashboard() {
                   axios
                     .post('http://localhost:8000/scheduler/update-config', {
                       buy_threshold: buyThreshold,
-                      sell_threshold: sellThreshold
+                      sell_threshold: sellThreshold,
+                      quantity,
+                      interval_seconds: intervalSeconds
                     })
                     .catch(err => console.error('Failed to sync bot rules', err));
                 }}
               >
                 Save Rules
               </button>
+            </div>
+            <div className="rule-inputs">
+              <div>
+                <label htmlFor="quantity">Quantity</label>
+                <input
+                  id="quantity"
+                  type="number"
+                  value={quantity}
+                  onChange={e => setQuantity(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label htmlFor="interval">Interval Seconds</label>
+                <input
+                  id="interval"
+                  type="number"
+                  value={intervalSeconds}
+                  onChange={e => setIntervalSeconds(Number(e.target.value))}
+                />
+              </div>
             </div>
             <div>
               <label htmlFor="auto-toggle">Automated Trading</label>
@@ -175,10 +206,11 @@ function Dashboard() {
                     eventSourceRef.current.close();
                   }
 
-                  const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}`;
+                  const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}&quantity=${quantity}&interval_seconds=${intervalSeconds}`;
                   const es = new EventSource(url);
                   eventSourceRef.current = es;
                   setLogs([]);
+                  setCountdown(intervalSeconds);
                   es.onmessage = e => {
                     try {
                       const obj = JSON.parse(e.data);
@@ -189,6 +221,9 @@ function Dashboard() {
                       }
                     } catch {
                       setLogs(prev => [...prev, e.data]);
+                    }
+                    if (import.meta.env.DEV && e.data.includes('⏰ Fetching data')) {
+                      setCountdown(intervalSeconds);
                     }
                   };
                   es.onerror = err => {
@@ -207,12 +242,16 @@ function Dashboard() {
                   axios
                     .post('http://localhost:8000/scheduler/stop-bot')
                     .catch(err => console.error('Failed to stop bot', err));
+                  setCountdown(0);
                 }}
               >
                 Stop Bot
               </button>
             </div>
           </div>
+          {import.meta.env.DEV && countdown > 0 && (
+            <p>Next fetch in: {countdown}s</p>
+          )}
           <pre className="logs">{logs.join('\n')}</pre>
         {pendingTrade && (
           <div className="prompt">

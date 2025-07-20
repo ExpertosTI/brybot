@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import json
 import time
 import requests
+import os
 from config import BASE_URL
 from app.auth import get_session_token
 import pandas as pd
@@ -13,11 +14,15 @@ from app.strategy import check_trade_signal
 from app.projectx import execute_trade, get_contract_id
 from logger import log_trade
 
+DEBUG = os.getenv("DEBUG", "0") == "1"
+
 # Global bot state shared across requests
 BOT_STATE = {
     "buy_threshold": 30,
     "sell_threshold": 70,
     "auto_trade": True,
+    "quantity": 1,
+    "interval_seconds": 60,
     "stop": False,
 }
 
@@ -28,6 +33,8 @@ class BotConfig(BaseModel):
     buy_threshold: int | None = None
     sell_threshold: int | None = None
     auto_trade: bool | None = None
+    quantity: int | None = None
+    interval_seconds: int | None = None
 
 router = APIRouter()
 
@@ -47,6 +54,10 @@ def update_config(config: BotConfig):
         BOT_STATE["sell_threshold"] = config.sell_threshold
     if config.auto_trade is not None:
         BOT_STATE["auto_trade"] = config.auto_trade
+    if config.quantity is not None:
+        BOT_STATE["quantity"] = config.quantity
+    if config.interval_seconds is not None:
+        BOT_STATE["interval_seconds"] = config.interval_seconds
     return {"status": "updated", **BOT_STATE}
 
 
@@ -144,6 +155,17 @@ def run_bot(
         print(message)
         return f"data: {message}\n\n"
 
+    def wait_interval():
+        nonlocal interval_seconds
+        for remaining in range(interval_seconds, 0, -1):
+            if DEBUG:
+                yield log(f"⏳ Next fetch in {remaining} seconds")
+            time.sleep(1)
+            interval_seconds = BOT_STATE.get("interval_seconds", interval_seconds)
+            if BOT_STATE.get("stop"):
+                yield log("🛑 Bot stop requested. Exiting loop.")
+                raise StopIteration
+
     def event_stream():
         nonlocal buy_threshold, sell_threshold, auto_trade
         # store initial config in global state
@@ -152,6 +174,8 @@ def run_bot(
                 "buy_threshold": buy_threshold,
                 "sell_threshold": sell_threshold,
                 "auto_trade": auto_trade,
+                "quantity": quantity,
+                "interval_seconds": interval_seconds,
                 "stop": False,
             }
         )
@@ -178,13 +202,19 @@ def run_bot(
             buy_threshold = BOT_STATE.get("buy_threshold", buy_threshold)
             sell_threshold = BOT_STATE.get("sell_threshold", sell_threshold)
             auto_trade = BOT_STATE.get("auto_trade", auto_trade)
+            quantity = BOT_STATE.get("quantity", quantity)
+            interval_seconds = BOT_STATE.get("interval_seconds", interval_seconds)
             try:
                 yield log(f"\n⏰ Fetching data at {datetime.now()}")
                 df = fetch_price_data(token=token, contract_id=contract_id)
 
                 if df is None or df.empty:
                     yield log("⚠️ No data returned.")
-                    time.sleep(interval_seconds)
+                    try:
+                        for msg in wait_interval():
+                            yield msg
+                    except StopIteration:
+                        break
                     continue
 
                 indicators = compute_indicators(df)
@@ -239,6 +269,10 @@ def run_bot(
             except Exception as e:
                 yield log(f"❌ Error during bot loop: {str(e)}")
 
-            time.sleep(interval_seconds)
+            try:
+                for msg in wait_interval():
+                    yield msg
+            except StopIteration:
+                break
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
