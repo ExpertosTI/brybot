@@ -16,6 +16,20 @@ h1 {
   padding: 2rem;
 }
 
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.rule-inputs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
 .card {
   background-color: #fff;
   padding: 2rem;

@@ -70,7 +70,13 @@ def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=10
     return df
 
 @router.get("/run-bot")
-def run_bot(symbol="RTYZ4", quantity=1, interval_seconds=60):
+def run_bot(
+    symbol: str = "RTYZ4",
+    quantity: int = 1,
+    interval_seconds: int = 60,
+    buy_threshold: int = 30,
+    sell_threshold: int = 70,
+):
     """Stream bot output to the client in real time using Server-Sent Events."""
 
     def log(message: str):
@@ -86,6 +92,10 @@ def run_bot(symbol="RTYZ4", quantity=1, interval_seconds=60):
         if not contract_id:
             yield log("❌ Could not get contract ID.")
             return
+
+        yield log(
+            f"Rules: BUY below {buy_threshold} | SELL above {sell_threshold}"
+        )
 
         while True:
             try:
@@ -107,7 +117,9 @@ def run_bot(symbol="RTYZ4", quantity=1, interval_seconds=60):
                 yield log(f"📈 MA Fast: {indicators['ma_fast'].iloc[-1]}")
                 yield log(f"📉 MA Slow: {indicators['ma_slow'].iloc[-1]}")
 
-                signal = check_trade_signal(indicators)
+                signal = check_trade_signal(
+                    indicators, buy_threshold=buy_threshold, sell_threshold=sell_threshold
+                )
 
                 yield log(f"📊 Latest Close: {df['close'].iloc[-1]:.2f} | Signal: {signal}")
 

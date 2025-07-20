@@ -86,3 +86,33 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 @router.get("/topstep-token")
 def topstep_login(current_user: str = Depends(get_current_user)):
     return {"token": get_session_token()}
+
+
+@router.get("/rules")
+def get_rules(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    user = get_user_by_username(db, current_user)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "buy_threshold": user.buy_threshold or 30,
+        "sell_threshold": user.sell_threshold or 70,
+    }
+
+
+@router.put("/rules")
+def update_rules(
+    rules: models.TradingRuleUpdate,
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(database.get_db),
+):
+    user = get_user_by_username(db, current_user)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.buy_threshold = rules.buy_threshold
+    user.sell_threshold = rules.sell_threshold
+    db.commit()
+    db.refresh(user)
+    return {"status": "updated"}
