@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,6 +11,8 @@ function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [contracts, setContracts] = useState<string[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+  const [logs, setLogs] = useState<string[]>([]);
+  const eventSourceRef = useRef<EventSource | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -59,16 +61,25 @@ function Dashboard() {
         </select>
       </div>
       <button onClick={() => {
-        axios.get('http://localhost:8000/scheduler/run-bot', {
-          params: { symbol: selectedSymbol },
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }).then(() => {
-          alert('Bot started successfully!');
-        }).catch(err => {
-          console.error('Error starting bot:', err);
-          alert('Failed to start the bot. Please try again.');
-        });
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+        }
+        const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}`;
+        const es = new EventSource(url);
+        eventSourceRef.current = es;
+        setLogs([]);
+        es.onmessage = (e) => {
+          setLogs(prev => [...prev, e.data]);
+        };
+        es.onerror = (err) => {
+          console.error('EventSource failed:', err);
+          es.close();
+        };
+
       }}>Run Bot</button>
+      <pre style={{ whiteSpace: 'pre-wrap' }}>
+        {logs.join('\n')}
+      </pre>
     </div>
   );
 }
