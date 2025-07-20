@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 import time
 import requests
 from config import BASE_URL
@@ -15,8 +16,16 @@ import os
 router = APIRouter()
 
 def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=100):
-    end_time = datetime.utcnow() - timedelta(hours=24)
-    start_time = end_time - timedelta(hours=1)
+    """Fetch historical bars for the given contract.
+
+    The function previously looked at a very short window one day in the past.
+    To better seed the indicator calculations we extend the window to cover the
+    last month.  The API still respects the ``limit`` parameter so callers can
+    control how many bars are returned.
+    """
+
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(days=30)
 
     url = f"{BASE_URL}/api/History/retrieveBars"
     payload = {
@@ -70,52 +79,62 @@ def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=10
 
 @router.get("/run-bot")
 def run_bot(symbol="RTYZ4", quantity=1, interval_seconds=60):
-    print("📈 Starting bot loop at", datetime.now())
+    """Stream bot output to the client in real time using Server-Sent Events."""
 
-    token = get_session_token()
-    contract_id = get_contract_id(symbol, token)
-    if not contract_id:
-        print("❌ Could not get contract ID.")
-        return
+    def log(message: str):
+        """Format a log line for SSE and print it to the console."""
+        print(message)
+        return f"data: {message}\n\n"
 
-    while True:
-        try:
-            print(f"\n⏰ Fetching data at {datetime.now()}")
-            df = fetch_price_data(token=token, contract_id=contract_id)
+    def event_stream():
+        yield log(f"📈 Starting bot loop at {datetime.now()}")
 
-            if df is None or df.empty:
-                print("⚠️ No data returned.")
-                time.sleep(interval_seconds)
-                continue
+        token = get_session_token()
+        contract_id = get_contract_id(symbol, token)
+        if not contract_id:
+            yield log("❌ Could not get contract ID.")
+            return
 
-            indicators = compute_indicators(df)
-            required_cols = ['rsi', 'ma_fast', 'ma_slow']
-            if not all(col in indicators.columns for col in required_cols):
-                raise Exception(f"Missing indicator columns in DataFrame: {set(required_cols) - set(indicators.columns)}")
-            print("🧪 Indicator columns:", indicators.columns)
-            print("📊 Indicators computed:", indicators.tail())
-            print("📉 RSI:", indicators['rsi'].iloc[-1])
-            print("📈 MA Fast:", indicators['ma_fast'].iloc[-1])
-            print("📉 MA Slow:", indicators['ma_slow'].iloc[-1])
+        while True:
+            try:
+                yield log(f"\n⏰ Fetching data at {datetime.now()}")
+                df = fetch_price_data(token=token, contract_id=contract_id)
 
-            signal = check_trade_signal(indicators)
+                if df is None or df.empty:
+                    yield log("⚠️ No data returned.")
+                    time.sleep(interval_seconds)
+                    continue
 
-            print(f"📊 Latest Close: {df['close'].iloc[-1]:.2f} | Signal: {signal}")
+                indicators = compute_indicators(df)
+                required_cols = ['rsi', 'ma_fast', 'ma_slow']
+                if not all(col in indicators.columns for col in required_cols):
+                    raise Exception(f"Missing indicator columns in DataFrame: {set(required_cols) - set(indicators.columns)}")
+                yield log(f"🧪 Indicator columns: {list(indicators.columns)}")
+                yield log(f"📊 Indicators computed: {indicators.tail()}")
+                yield log(f"📉 RSI: {indicators['rsi'].iloc[-1]}")
+                yield log(f"📈 MA Fast: {indicators['ma_fast'].iloc[-1]}")
+                yield log(f"📉 MA Slow: {indicators['ma_slow'].iloc[-1]}")
 
-            if signal == "BUY":
-                print("🟢 BUY signal detected!")
-                response = execute_trade(symbol=symbol, side="BUY", quantity=quantity, token=token)
-                print("✅ Trade response:", response)
-                log_trade(symbol, "BUY", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
-            elif signal == "SELL":
-                print("🔴 SELL signal detected!")
-                response = execute_trade(symbol=symbol, side="SELL", quantity=quantity, token=token)
-                print("✅ Trade response:", response)
-                log_trade(symbol, "SELL", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
-            else:
-                print("⏳ No trade signal at this time.")
+                signal = check_trade_signal(indicators)
 
-        except Exception as e:
-            print("❌ Error during bot loop:", str(e))
+                yield log(f"📊 Latest Close: {df['close'].iloc[-1]:.2f} | Signal: {signal}")
 
-        time.sleep(interval_seconds)
+                if signal == "BUY":
+                    yield log("🟢 BUY signal detected!")
+                    response = execute_trade(symbol=symbol, side="BUY", quantity=quantity, token=token)
+                    yield log(f"✅ Trade response: {response}")
+                    log_trade(symbol, "BUY", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
+                elif signal == "SELL":
+                    yield log("🔴 SELL signal detected!")
+                    response = execute_trade(symbol=symbol, side="SELL", quantity=quantity, token=token)
+                    yield log(f"✅ Trade response: {response}")
+                    log_trade(symbol, "SELL", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
+                else:
+                    yield log("⏳ No trade signal at this time.")
+
+            except Exception as e:
+                yield log(f"❌ Error during bot loop: {str(e)}")
+
+            time.sleep(interval_seconds)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

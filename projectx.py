@@ -66,6 +66,29 @@ def get_contract_id(symbol: str, token):
         print(f"❌ Error fetching contract ID: {e}")
         return None
 
+def get_all_contracts(token: str):
+    """Retrieve all available contracts from Topstep."""
+    url = f"{BASE_URL}/api/Contract/search"
+    payload = {
+        "searchText": "",
+        "live": False,
+    }
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        print("Status Code (Contract Search):", response.status_code)
+        print("Response (Contract Search):", response.text)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("contracts", [])
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error fetching contract list: {e}")
+        return []
+
 def execute_trade(symbol: str, side: str, quantity: int, token: str):   
 
     account_id = get_active_account_id(token)

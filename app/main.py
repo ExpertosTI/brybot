@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from . import auth_routes, models, database, scheduler
+from . import auth_routes, models, database, scheduler, contracts
 from .database import engine
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,6 +9,7 @@ app = FastAPI()
 
 app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
 app.include_router(scheduler.router, prefix="/scheduler", tags=["scheduler"])
+app.include_router(contracts.router, tags=["contracts"])
 
 app.add_middleware(
     CORSMiddleware,
