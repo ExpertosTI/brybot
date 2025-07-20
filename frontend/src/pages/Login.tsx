@@ -32,6 +32,7 @@ function Login() {
             <label htmlFor="username">Username</label>
             <input
               id="username"
+              type="text"
               value={form.username}
               onChange={e => setForm({ ...form, username: e.target.value })}
               placeholder="Username"
