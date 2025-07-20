@@ -12,7 +12,7 @@ function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get('http://localhost:8000/me', {
+    axios.get('http://localhost:8000/auth/me', {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
     })
       .then(res => setUser(res.data))
@@ -33,7 +33,7 @@ function Dashboard() {
       <h1>Dashboard</h1>
       <p>Welcome {user?.username}</p>
       <button onClick={() => {
-        axios.post('http://localhost:8000/scheduler/run-bot', {}, {
+        axios.get('http://localhost:8000/scheduler/run-bot', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         }).then(() => {
           alert('Bot started successfully!');
