@@ -13,6 +13,22 @@ from app.strategy import check_trade_signal
 from app.projectx import execute_trade, get_contract_id
 from logger import log_trade
 
+# Global bot state shared across requests
+BOT_STATE = {
+    "buy_threshold": 30,
+    "sell_threshold": 70,
+    "auto_trade": True,
+    "stop": False,
+}
+
+
+class BotConfig(BaseModel):
+    """Partial update model for bot configuration."""
+
+    buy_threshold: int | None = None
+    sell_threshold: int | None = None
+    auto_trade: bool | None = None
+
 router = APIRouter()
 
 
@@ -20,6 +36,25 @@ class TradeRequest(BaseModel):
     symbol: str
     side: str  # "BUY" or "SELL"
     quantity: int
+
+
+@router.post("/update-config")
+def update_config(config: BotConfig):
+    """Update bot configuration while it is running."""
+    if config.buy_threshold is not None:
+        BOT_STATE["buy_threshold"] = config.buy_threshold
+    if config.sell_threshold is not None:
+        BOT_STATE["sell_threshold"] = config.sell_threshold
+    if config.auto_trade is not None:
+        BOT_STATE["auto_trade"] = config.auto_trade
+    return {"status": "updated", **BOT_STATE}
+
+
+@router.post("/stop-bot")
+def stop_bot():
+    """Signal the running bot loop to stop."""
+    BOT_STATE["stop"] = True
+    return {"status": "stopping"}
 
 
 @router.post("/execute-trade")
@@ -110,6 +145,16 @@ def run_bot(
         return f"data: {message}\n\n"
 
     def event_stream():
+        # store initial config in global state
+        BOT_STATE.update(
+            {
+                "buy_threshold": buy_threshold,
+                "sell_threshold": sell_threshold,
+                "auto_trade": auto_trade,
+                "stop": False,
+            }
+        )
+
         yield log(f"📈 Starting bot loop at {datetime.now()}")
 
         token = get_session_token()
@@ -119,10 +164,19 @@ def run_bot(
             return
 
         yield log(
-            f"Rules: BUY below {buy_threshold} | SELL above {sell_threshold}"
+            f"Rules: BUY below {BOT_STATE['buy_threshold']} | SELL above {BOT_STATE['sell_threshold']}"
         )
 
         while True:
+            # Check for stop signal
+            if BOT_STATE.get("stop"):
+                yield log("🛑 Bot stop requested. Exiting loop.")
+                break
+
+            # Pull latest config each iteration
+            buy_threshold = BOT_STATE.get("buy_threshold", buy_threshold)
+            sell_threshold = BOT_STATE.get("sell_threshold", sell_threshold)
+            auto_trade = BOT_STATE.get("auto_trade", auto_trade)
             try:
                 yield log(f"\n⏰ Fetching data at {datetime.now()}")
                 df = fetch_price_data(token=token, contract_id=contract_id)
