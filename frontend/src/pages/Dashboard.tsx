@@ -234,8 +234,9 @@ function Dashboard() {
             <button onClick={() => setPendingTrade(null)}>Cancel</button>
           </div>
         )}
+        </div>
       </div>
-    </div>
+      </div>
   );
 }
 
