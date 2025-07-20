@@ -10,7 +10,7 @@ function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:8000/token', new URLSearchParams(form));
+      const res = await axios.post('http://localhost:8000/auth/token', new URLSearchParams(form));
       localStorage.setItem('token', res.data.access_token);
       navigate('/dashboard');
     } catch (err) {
