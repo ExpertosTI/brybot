@@ -167,7 +167,7 @@ def run_bot(
                 raise StopIteration
 
     def event_stream():
-        nonlocal buy_threshold, sell_threshold, auto_trade
+        nonlocal buy_threshold, sell_threshold, auto_trade, quantity, interval_seconds
         # store initial config in global state
         BOT_STATE.update(
             {
