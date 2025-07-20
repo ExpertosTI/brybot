@@ -69,3 +69,10 @@ pre {
   max-height: 300px;
   overflow-y: auto;
 }
+
+.prompt {
+  background: #fff3cd;
+  padding: 1rem;
+  border: 1px solid #ffeeba;
+  margin-top: 1rem;
+}
