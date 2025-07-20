@@ -9,6 +9,8 @@ interface User {
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
+  const [contracts, setContracts] = useState<string[]>([]);
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,14 +28,39 @@ function Dashboard() {
           alert('An error occurred while fetching user data.');
         }
       });
+
+    axios.get('http://localhost:8000/contracts')
+      .then(res => {
+        setContracts(res.data.contracts);
+        if (res.data.contracts.length > 0) {
+          setSelectedSymbol(res.data.contracts[0]);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch contracts:', err);
+        alert('Could not load contracts list.');
+      });
   }, []);
 
   return (
     <div>
       <h1>Dashboard</h1>
       <p>Welcome {user?.username}</p>
+      <div>
+        <label htmlFor="contract-select">Contract:</label>
+        <select
+          id="contract-select"
+          value={selectedSymbol}
+          onChange={e => setSelectedSymbol(e.target.value)}
+        >
+          {contracts.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
       <button onClick={() => {
         axios.get('http://localhost:8000/scheduler/run-bot', {
+          params: { symbol: selectedSymbol },
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         }).then(() => {
           alert('Bot started successfully!');
