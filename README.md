@@ -16,7 +16,7 @@ npm run dev
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-alembic upgrade head
+alembic upgrade head  # run from project root to apply migrations
 uvicorn app.main:app --reload
 ```
 
