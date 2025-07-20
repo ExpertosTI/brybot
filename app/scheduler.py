@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+import json
 import time
 import requests
 from config import BASE_URL
@@ -10,10 +12,32 @@ from app.indicators import compute_indicators
 from app.strategy import check_trade_signal
 from app.projectx import execute_trade, get_contract_id
 from logger import log_trade
-import csv
-import os
 
 router = APIRouter()
+
+
+class TradeRequest(BaseModel):
+    symbol: str
+    side: str  # "BUY" or "SELL"
+    quantity: int
+
+
+@router.post("/execute-trade")
+def execute_trade_endpoint(order: TradeRequest, token: str | None = None):
+    """Endpoint to manually execute a trade."""
+    token = token or get_session_token()
+    response = execute_trade(
+        symbol=order.symbol, side=order.side, quantity=order.quantity, token=token
+    )
+    log_trade(
+        order.symbol,
+        order.side,
+        order.quantity,
+        0,
+        "SUCCESS" if response.get("success") else "FAIL",
+        str(response),
+    )
+    return response
 
 def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=100):
     end_time = datetime.utcnow()
@@ -76,6 +100,7 @@ def run_bot(
     interval_seconds: int = 60,
     buy_threshold: int = 30,
     sell_threshold: int = 70,
+    auto_trade: bool = True,
 ):
     """Stream bot output to the client in real time using Server-Sent Events."""
 
@@ -125,14 +150,34 @@ def run_bot(
 
                 if signal == "BUY":
                     yield log("🟢 BUY signal detected!")
-                    response = execute_trade(symbol=symbol, side="BUY", quantity=quantity, token=token)
-                    yield log(f"✅ Trade response: {response}")
-                    log_trade(symbol, "BUY", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
+                    if auto_trade:
+                        response = execute_trade(symbol=symbol, side="BUY", quantity=quantity, token=token)
+                        yield log(f"✅ Trade response: {response}")
+                        log_trade(symbol, "BUY", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
+                    else:
+                        prompt = {
+                            "type": "prompt",
+                            "side": "BUY",
+                            "price": df['close'].iloc[-1],
+                            "symbol": symbol,
+                            "quantity": quantity,
+                        }
+                        yield log(json.dumps(prompt))
                 elif signal == "SELL":
                     yield log("🔴 SELL signal detected!")
-                    response = execute_trade(symbol=symbol, side="SELL", quantity=quantity, token=token)
-                    yield log(f"✅ Trade response: {response}")
-                    log_trade(symbol, "SELL", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
+                    if auto_trade:
+                        response = execute_trade(symbol=symbol, side="SELL", quantity=quantity, token=token)
+                        yield log(f"✅ Trade response: {response}")
+                        log_trade(symbol, "SELL", quantity, df['close'].iloc[-1], "SUCCESS" if response.get("success") else "FAIL", str(response))
+                    else:
+                        prompt = {
+                            "type": "prompt",
+                            "side": "SELL",
+                            "price": df['close'].iloc[-1],
+                            "symbol": symbol,
+                            "quantity": quantity,
+                        }
+                        yield log(json.dumps(prompt))
                 else:
                     yield log("⏳ No trade signal at this time.")
 

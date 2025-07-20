@@ -7,6 +7,13 @@ interface User {
   // Add other properties as needed based on the API response
 }
 
+interface TradePrompt {
+  side: string;
+  price: number;
+  symbol: string;
+  quantity: number;
+}
+
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [contracts, setContracts] = useState<string[]>([]);
@@ -14,6 +21,8 @@ function Dashboard() {
   const [logs, setLogs] = useState<string[]>([]);
   const [buyThreshold, setBuyThreshold] = useState<number>(30);
   const [sellThreshold, setSellThreshold] = useState<number>(70);
+  const [autoTrade, setAutoTrade] = useState<boolean>(true);
+  const [pendingTrade, setPendingTrade] = useState<TradePrompt | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const navigate = useNavigate();
 
@@ -67,6 +76,10 @@ function Dashboard() {
     <div className="container">
       <div className="card">
         <h1>Dashboard</h1>
+        <button onClick={() => {
+          localStorage.removeItem('token');
+          navigate('/');
+        }}>Logout</button>
         <p>Welcome {user?.username}</p>
         <div>
           <label htmlFor="contract-select">Contract:</label>
@@ -108,17 +121,35 @@ function Dashboard() {
             }).catch(err => console.error('Failed to update rules', err));
           }}>Save Rules</button>
         </div>
+        <div>
+          <label htmlFor="auto-toggle">Automated Trading</label>
+          <input
+            id="auto-toggle"
+            type="checkbox"
+            checked={autoTrade}
+            onChange={e => setAutoTrade(e.target.checked)}
+          />
+        </div>
         <button onClick={() => {
           if (eventSourceRef.current) {
             eventSourceRef.current.close();
           }
 
-        const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}`;
+        const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}`;
         const es = new EventSource(url);
         eventSourceRef.current = es;
         setLogs([]);
         es.onmessage = (e) => {
-          setLogs(prev => [...prev, e.data]);
+          try {
+            const obj = JSON.parse(e.data);
+            if (obj.type === 'prompt') {
+              setPendingTrade(obj);
+            } else {
+              setLogs(prev => [...prev, e.data]);
+            }
+          } catch {
+            setLogs(prev => [...prev, e.data]);
+          }
         };
         es.onerror = (err) => {
           console.error('EventSource failed:', err);
@@ -129,6 +160,26 @@ function Dashboard() {
         <pre>
           {logs.join('\n')}
         </pre>
+        {pendingTrade && (
+          <div className="prompt">
+            <p>{`Signal ${pendingTrade.side} at ${pendingTrade.price}`}</p>
+            <button
+              onClick={() => {
+                axios
+                  .post('http://localhost:8000/scheduler/execute-trade', pendingTrade)
+                  .then(() => setLogs(prev => [...prev, 'Manual trade executed']))
+                  .catch(err => {
+                    console.error('Manual trade failed', err);
+                    setLogs(prev => [...prev, 'Manual trade failed']);
+                  });
+                setPendingTrade(null);
+              }}
+            >
+              {pendingTrade.side}
+            </button>
+            <button onClick={() => setPendingTrade(null)}>Cancel</button>
+          </div>
+        )}
       </div>
     </div>
   );
