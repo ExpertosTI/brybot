@@ -24,35 +24,40 @@ function Login() {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="username">Username</label>
-        <input
-          id="username"
-          value={form.username}
-          onChange={e => setForm({ ...form, username: e.target.value })}
-          placeholder="Username"
-          aria-describedby={error ? "error-message" : undefined}
-        />
+    <div className="container">
+      <div className="card">
+        <h1>Login</h1>
+        <form onSubmit={handleSubmit}>
+          <div>
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              value={form.username}
+              onChange={e => setForm({ ...form, username: e.target.value })}
+              placeholder="Username"
+              aria-describedby={error ? "error-message" : undefined}
+            />
+          </div>
+          <div>
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              placeholder="Password"
+              aria-describedby={error ? "error-message" : undefined}
+            />
+          </div>
+          {error && (
+            <div id="error-message" role="alert" aria-live="assertive" style={{ color: 'red' }}>
+              {error}
+            </div>
+          )}
+          <button type="submit">Login</button>
+        </form>
       </div>
-      <div>
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={form.password}
-          onChange={e => setForm({ ...form, password: e.target.value })}
-          placeholder="Password"
-          aria-describedby={error ? "error-message" : undefined}
-        />
-      </div>
-      {error && (
-        <div id="error-message" role="alert" aria-live="assertive" style={{ color: 'red' }}>
-          {error}
-        </div>
-      )}
-      <button type="submit">Login</button>
-    </form>
+    </div>
   );
 }
 

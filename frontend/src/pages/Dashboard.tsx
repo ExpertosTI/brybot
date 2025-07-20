@@ -45,25 +45,26 @@ function Dashboard() {
   }, []);
 
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome {user?.username}</p>
-      <div>
-        <label htmlFor="contract-select">Contract:</label>
-        <select
-          id="contract-select"
-          value={selectedSymbol}
-          onChange={e => setSelectedSymbol(e.target.value)}
-        >
-          {contracts.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-      </div>
-      <button onClick={() => {
-        if (eventSourceRef.current) {
-          eventSourceRef.current.close();
-        }
+    <div className="container">
+      <div className="card">
+        <h1>Dashboard</h1>
+        <p>Welcome {user?.username}</p>
+        <div>
+          <label htmlFor="contract-select">Contract:</label>
+          <select
+            id="contract-select"
+            value={selectedSymbol}
+            onChange={e => setSelectedSymbol(e.target.value)}
+          >
+            {contracts.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={() => {
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+          }
         const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}`;
         const es = new EventSource(url);
         eventSourceRef.current = es;
@@ -76,10 +77,11 @@ function Dashboard() {
           es.close();
         };
 
-      }}>Run Bot</button>
-      <pre style={{ whiteSpace: 'pre-wrap' }}>
-        {logs.join('\n')}
-      </pre>
+        }}>Run Bot</button>
+        <pre>
+          {logs.join('\n')}
+        </pre>
+      </div>
     </div>
   );
 }
