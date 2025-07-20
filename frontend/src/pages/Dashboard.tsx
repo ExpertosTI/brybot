@@ -33,7 +33,7 @@ function Dashboard() {
       <h1>Dashboard</h1>
       <p>Welcome {user?.username}</p>
       <button onClick={() => {
-        axios.post('http://localhost:8000/run-bot', {}, {
+        axios.post('http://localhost:8000/scheduler/run-bot', {}, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         }).then(() => {
           alert('Bot started successfully!');

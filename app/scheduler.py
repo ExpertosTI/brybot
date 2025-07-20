@@ -1,16 +1,18 @@
+from fastapi import APIRouter, Depends, HTTPException
 import time
 import requests
 from config import BASE_URL
-from auth import get_session_token
+from app.auth import get_session_token
 import pandas as pd
 from datetime import datetime, timedelta
 from indicators import compute_indicators
-from strategy import check_trade_signal
+from app.strategy import check_trade_signal
 from projectx import execute_trade, get_contract_id
 from logger import log_trade
 import csv
 import os
 
+router = APIRouter()
 
 def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=100):
     end_time = datetime.utcnow() - timedelta(hours=24)
@@ -66,7 +68,7 @@ def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=10
     df.set_index('timestamp', inplace=True)
     return df
 
-
+@router.get("/run-bot")
 def run_bot(symbol="RTYZ4", quantity=1, interval_seconds=60):
     print("📈 Starting bot loop at", datetime.now())
 

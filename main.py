@@ -5,8 +5,8 @@ from projectx import execute_trade
 import csv
 from datetime import datetime
 import os
-from scheduler import run_bot
-from auth import get_session_token
+from app.scheduler import run_bot
+from app.auth import get_session_token
 
 app = FastAPI()
 

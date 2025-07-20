@@ -1,5 +1,5 @@
 # projectx.py
-from auth import get_session_token
+from app.auth import get_session_token
 import os
 import requests
 import json
