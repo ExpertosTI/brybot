@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from projectx import execute_trade
+from app.projectx import execute_trade
 import csv
 from datetime import datetime
 import os

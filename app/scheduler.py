@@ -6,9 +6,9 @@ from config import BASE_URL
 from app.auth import get_session_token
 import pandas as pd
 from datetime import datetime, timedelta
-from indicators import compute_indicators
+from app.indicators import compute_indicators
 from app.strategy import check_trade_signal
-from projectx import execute_trade, get_contract_id
+from app.projectx import execute_trade, get_contract_id
 from logger import log_trade
 import csv
 import os
@@ -16,14 +16,6 @@ import os
 router = APIRouter()
 
 def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=100):
-    """Fetch historical bars for the given contract.
-
-    The function previously looked at a very short window one day in the past.
-    To better seed the indicator calculations we extend the window to cover the
-    last month.  The API still respects the ``limit`` parameter so callers can
-    control how many bars are returned.
-    """
-
     end_time = datetime.utcnow()
     start_time = end_time - timedelta(days=30)
 

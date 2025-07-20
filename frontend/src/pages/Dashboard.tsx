@@ -75,6 +75,7 @@ function Dashboard() {
           console.error('EventSource failed:', err);
           es.close();
         };
+
       }}>Run Bot</button>
       <pre style={{ whiteSpace: 'pre-wrap' }}>
         {logs.join('\n')}
