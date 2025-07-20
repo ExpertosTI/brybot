@@ -119,17 +119,27 @@ function Dashboard() {
             }, {
               headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             }).catch(err => console.error('Failed to update rules', err));
+            axios.post('http://localhost:8000/scheduler/update-config', {
+              buy_threshold: buyThreshold,
+              sell_threshold: sellThreshold
+            }).catch(err => console.error('Failed to sync bot rules', err));
           }}>Save Rules</button>
         </div>
-        <div>
-          <label htmlFor="auto-toggle">Automated Trading</label>
-          <input
-            id="auto-toggle"
-            type="checkbox"
-            checked={autoTrade}
-            onChange={e => setAutoTrade(e.target.checked)}
-          />
-        </div>
+          <div>
+            <label htmlFor="auto-toggle">Automated Trading</label>
+            <input
+              id="auto-toggle"
+              type="checkbox"
+              checked={autoTrade}
+              onChange={e => {
+                const val = e.target.checked;
+                setAutoTrade(val);
+                axios.post('http://localhost:8000/scheduler/update-config', {
+                  auto_trade: val
+                }).catch(err => console.error('Failed to update auto trade', err));
+              }}
+            />
+          </div>
         <button onClick={() => {
           if (eventSourceRef.current) {
             eventSourceRef.current.close();
@@ -157,6 +167,12 @@ function Dashboard() {
         };
 
         }}>Run Bot</button>
+        <button onClick={() => {
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+          }
+          axios.post('http://localhost:8000/scheduler/stop-bot').catch(err => console.error('Failed to stop bot', err));
+        }}>Stop Bot</button>
         <pre>
           {logs.join('\n')}
         </pre>
