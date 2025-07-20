@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 interface User {
   username: string;
@@ -8,6 +9,7 @@ interface User {
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     axios.get('http://localhost:8000/me', {
