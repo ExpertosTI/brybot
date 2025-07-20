@@ -87,15 +87,6 @@ h1 {
   margin-top: 0.5rem;
 }
 
-.indicators {
-  background-color: #272822;
-  color: #f8f8f2;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-top: 1rem;
-  white-space: pre-wrap;
-  overflow-x: auto;
-}
 
 input[type="text"],
 input[type="password"],

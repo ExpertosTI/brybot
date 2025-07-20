@@ -25,8 +25,6 @@ function Dashboard() {
   const [quantity, setQuantity] = useState<number>(1);
   const [intervalSeconds, setIntervalSeconds] = useState<number>(60);
   const [countdown, setCountdown] = useState<number>(0);
-  const [indicatorCols, setIndicatorCols] = useState<string>('');
-  const [indicatorsData, setIndicatorsData] = useState<string>('');
   const [pendingTrade, setPendingTrade] = useState<TradePrompt | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const navigate = useNavigate();
@@ -78,10 +76,14 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (countdown <= 0) return;
+    if (!eventSourceRef.current) return;
+    if (countdown <= 0) {
+      setCountdown(intervalSeconds);
+      return;
+    }
     const id = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(id);
-  }, [countdown]);
+  }, [countdown, intervalSeconds]);
 
   return (
     <div className="container">
@@ -206,6 +208,7 @@ function Dashboard() {
                 onClick={() => {
                   if (eventSourceRef.current) {
                     eventSourceRef.current.close();
+                    eventSourceRef.current = null;
                   }
 
                   const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}&quantity=${quantity}&interval_seconds=${intervalSeconds}`;
@@ -227,14 +230,6 @@ function Dashboard() {
 
                     setLogs(prev => [...prev, msg]);
 
-                    if (msg.includes('Indicator columns:')) {
-                      const cols = msg.split('Indicator columns:')[1].trim();
-                      setIndicatorCols(cols);
-                    }
-                    if (msg.includes('Indicators computed:')) {
-                      const data = msg.split('Indicators computed:')[1].trim();
-                      setIndicatorsData(data);
-                    }
                     if (msg.includes('⏰ Fetching data')) {
                       setCountdown(intervalSeconds);
                     }
@@ -242,6 +237,7 @@ function Dashboard() {
                   es.onerror = err => {
                     console.error('EventSource failed:', err);
                     es.close();
+                    eventSourceRef.current = null;
                   };
                 }}
               >
@@ -251,6 +247,7 @@ function Dashboard() {
                 onClick={() => {
                   if (eventSourceRef.current) {
                     eventSourceRef.current.close();
+                    eventSourceRef.current = null;
                   }
                   axios
                     .post('http://localhost:8000/scheduler/stop-bot')
@@ -265,14 +262,6 @@ function Dashboard() {
           <pre className="logs">{logs.join('\n')}</pre>
           {countdown > 0 && (
             <p className="countdown">Next fetch in: {countdown}s</p>
-          )}
-          {indicatorCols && (
-            <div className="indicators">
-              <p>
-                <strong>Indicator columns:</strong> {indicatorCols}
-              </p>
-              {indicatorsData && <pre>{indicatorsData}</pre>}
-            </div>
           )}
         {pendingTrade && (
           <div className="prompt">
