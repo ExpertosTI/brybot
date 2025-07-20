@@ -145,6 +145,7 @@ def run_bot(
         return f"data: {message}\n\n"
 
     def event_stream():
+        nonlocal buy_threshold, sell_threshold, auto_trade
         # store initial config in global state
         BOT_STATE.update(
             {
