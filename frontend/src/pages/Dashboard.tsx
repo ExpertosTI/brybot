@@ -74,108 +74,146 @@ function Dashboard() {
 
   return (
     <div className="container">
-      <div className="card">
-        <h1>Dashboard</h1>
-        <button onClick={() => {
-          localStorage.removeItem('token');
-          navigate('/');
-        }}>Logout</button>
-        <p>Welcome {user?.username}</p>
-        <div>
-          <label htmlFor="contract-select">Contract:</label>
-          <select
-            id="contract-select"
-            value={selectedSymbol}
-            onChange={e => setSelectedSymbol(e.target.value)}
-          >
-            {contracts.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-        <div className="rule-inputs">
-          <div>
-            <label htmlFor="buy">Buy RSI below</label>
-            <input
-              id="buy"
-              type="number"
-              value={buyThreshold}
-              onChange={e => setBuyThreshold(Number(e.target.value))}
-            />
-          </div>
-          <div>
-            <label htmlFor="sell">Sell RSI above</label>
-            <input
-              id="sell"
-              type="number"
-              value={sellThreshold}
-              onChange={e => setSellThreshold(Number(e.target.value))}
-            />
-          </div>
-          <button onClick={() => {
-            axios.put('http://localhost:8000/auth/rules', {
-              buy_threshold: buyThreshold,
-              sell_threshold: sellThreshold
-            }, {
-              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-            }).catch(err => console.error('Failed to update rules', err));
-            axios.post('http://localhost:8000/scheduler/update-config', {
-              buy_threshold: buyThreshold,
-              sell_threshold: sellThreshold
-            }).catch(err => console.error('Failed to sync bot rules', err));
-          }}>Save Rules</button>
-        </div>
-          <div>
-            <label htmlFor="auto-toggle">Automated Trading</label>
-            <input
-              id="auto-toggle"
-              type="checkbox"
-              checked={autoTrade}
-              onChange={e => {
-                const val = e.target.checked;
-                setAutoTrade(val);
-                axios.post('http://localhost:8000/scheduler/update-config', {
-                  auto_trade: val
-                }).catch(err => console.error('Failed to update auto trade', err));
+      <div className="card dashboard-card">
+        <header className="dashboard-header">
+          <h1>Dashboard</h1>
+          <div className="header-right">
+            <span>Welcome {user?.username}</span>
+            <button
+              onClick={() => {
+                localStorage.removeItem('token');
+                navigate('/');
               }}
-            />
+            >
+              Logout
+            </button>
           </div>
-        <button onClick={() => {
-          if (eventSourceRef.current) {
-            eventSourceRef.current.close();
-          }
+        </header>
+        <div className="dashboard-grid">
+          <div className="controls">
+            <div>
+              <label htmlFor="contract-select">Contract:</label>
+              <select
+                id="contract-select"
+                value={selectedSymbol}
+                onChange={e => setSelectedSymbol(e.target.value)}
+              >
+                {contracts.map(c => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="rule-inputs">
+              <div>
+                <label htmlFor="buy">Buy RSI below</label>
+                <input
+                  id="buy"
+                  type="number"
+                  value={buyThreshold}
+                  onChange={e => setBuyThreshold(Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label htmlFor="sell">Sell RSI above</label>
+                <input
+                  id="sell"
+                  type="number"
+                  value={sellThreshold}
+                  onChange={e => setSellThreshold(Number(e.target.value))}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  axios
+                    .put(
+                      'http://localhost:8000/auth/rules',
+                      {
+                        buy_threshold: buyThreshold,
+                        sell_threshold: sellThreshold
+                      },
+                      {
+                        headers: {
+                          Authorization: `Bearer ${localStorage.getItem('token')}`
+                        }
+                      }
+                    )
+                    .catch(err => console.error('Failed to update rules', err));
+                  axios
+                    .post('http://localhost:8000/scheduler/update-config', {
+                      buy_threshold: buyThreshold,
+                      sell_threshold: sellThreshold
+                    })
+                    .catch(err => console.error('Failed to sync bot rules', err));
+                }}
+              >
+                Save Rules
+              </button>
+            </div>
+            <div>
+              <label htmlFor="auto-toggle">Automated Trading</label>
+              <input
+                id="auto-toggle"
+                type="checkbox"
+                checked={autoTrade}
+                onChange={e => {
+                  const val = e.target.checked;
+                  setAutoTrade(val);
+                  axios
+                    .post('http://localhost:8000/scheduler/update-config', {
+                      auto_trade: val
+                    })
+                    .catch(err => console.error('Failed to update auto trade', err));
+                }}
+              />
+            </div>
+            <div className="button-row">
+              <button
+                onClick={() => {
+                  if (eventSourceRef.current) {
+                    eventSourceRef.current.close();
+                  }
 
-        const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}`;
-        const es = new EventSource(url);
-        eventSourceRef.current = es;
-        setLogs([]);
-        es.onmessage = (e) => {
-          try {
-            const obj = JSON.parse(e.data);
-            if (obj.type === 'prompt') {
-              setPendingTrade(obj);
-            } else {
-              setLogs(prev => [...prev, e.data]);
-            }
-          } catch {
-            setLogs(prev => [...prev, e.data]);
-          }
-        };
-        es.onerror = (err) => {
-          console.error('EventSource failed:', err);
-          es.close();
-        };
-
-        }}>Run Bot</button>
-        <button onClick={() => {
-          if (eventSourceRef.current) {
-            eventSourceRef.current.close();
-          }
-          axios.post('http://localhost:8000/scheduler/stop-bot').catch(err => console.error('Failed to stop bot', err));
-        }}>Stop Bot</button>
-        <pre>
-          {logs.join('\n')}
-        </pre>
+                  const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}`;
+                  const es = new EventSource(url);
+                  eventSourceRef.current = es;
+                  setLogs([]);
+                  es.onmessage = e => {
+                    try {
+                      const obj = JSON.parse(e.data);
+                      if (obj.type === 'prompt') {
+                        setPendingTrade(obj);
+                      } else {
+                        setLogs(prev => [...prev, e.data]);
+                      }
+                    } catch {
+                      setLogs(prev => [...prev, e.data]);
+                    }
+                  };
+                  es.onerror = err => {
+                    console.error('EventSource failed:', err);
+                    es.close();
+                  };
+                }}
+              >
+                Run Bot
+              </button>
+              <button
+                onClick={() => {
+                  if (eventSourceRef.current) {
+                    eventSourceRef.current.close();
+                  }
+                  axios
+                    .post('http://localhost:8000/scheduler/stop-bot')
+                    .catch(err => console.error('Failed to stop bot', err));
+                }}
+              >
+                Stop Bot
+              </button>
+            </div>
+          </div>
+          <pre className="logs">{logs.join('\n')}</pre>
         {pendingTrade && (
           <div className="prompt">
             <p>{`Signal ${pendingTrade.side} at ${pendingTrade.price}`}</p>
