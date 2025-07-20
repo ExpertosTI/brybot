@@ -76,7 +76,7 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!import.meta.env.DEV || countdown <= 0) return;
+    if (countdown <= 0) return;
     const id = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(id);
   }, [countdown]);
@@ -222,7 +222,7 @@ function Dashboard() {
                     } catch {
                       setLogs(prev => [...prev, e.data]);
                     }
-                    if (import.meta.env.DEV && e.data.includes('⏰ Fetching data')) {
+                    if (e.data.includes('⏰ Fetching data')) {
                       setCountdown(intervalSeconds);
                     }
                   };
@@ -249,10 +249,10 @@ function Dashboard() {
               </button>
             </div>
           </div>
-          {import.meta.env.DEV && countdown > 0 && (
-            <p>Next fetch in: {countdown}s</p>
-          )}
           <pre className="logs">{logs.join('\n')}</pre>
+          {countdown > 0 && (
+            <p className="countdown">Next fetch in: {countdown}s</p>
+          )}
         {pendingTrade && (
           <div className="prompt">
             <p>{`Signal ${pendingTrade.side} at ${pendingTrade.price}`}</p>

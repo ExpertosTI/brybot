@@ -82,6 +82,11 @@ h1 {
   overflow-y: auto;
 }
 
+.countdown {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
 input[type="text"],
 input[type="password"],
 select {
