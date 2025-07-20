@@ -112,6 +112,7 @@ function Dashboard() {
           if (eventSourceRef.current) {
             eventSourceRef.current.close();
           }
+
         const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}`;
         const es = new EventSource(url);
         eventSourceRef.current = es;

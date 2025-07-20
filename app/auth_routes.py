@@ -99,6 +99,7 @@ def get_rules(
     return {
         "buy_threshold": user.buy_threshold or 30,
         "sell_threshold": user.sell_threshold or 70,
+
     }
 
 
