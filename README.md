@@ -31,4 +31,21 @@ TOPSTEP_API_KEY=your-api-key
 SECRET_KEY=your-secret
 ACCOUNT_ID=your-topstep-account-id
 TOPSTEP_ACCOUNT_ID=your-topstep-account-id
+TRADINGVIEW_API_KEY=your-tradingview-api-key
+TRADINGVIEW_BASE_URL=https://api.tradingview.com  # optional
 ```
+
+## 📈 TradingView API
+
+A lightweight wrapper for the TradingView API lives in `app/tradingview_api.py`. It provides
+helpers for fetching OHLC data and indicators while handling authentication and rate limits.
+
+```python
+from app.tradingview_api import TradingViewClient
+
+client = TradingViewClient()
+data = client.get_ohlc("AAPL", "1", 1690000000, 1690003600)
+print(data)
+```
+
+Set `TRADINGVIEW_API_KEY` in your `.env` to authenticate requests.
