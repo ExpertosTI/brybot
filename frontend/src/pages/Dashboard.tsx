@@ -38,7 +38,7 @@ function Dashboard() {
         if (err.response && err.response.status === 401) {
           alert('Session expired. Please log in again.');
           localStorage.removeItem('token');
-          navigate('/login');
+          navigate('/');
         } else {
           console.error('An error occurred:', err);
           alert('An error occurred while fetching user data.');
@@ -120,7 +120,7 @@ function Dashboard() {
             </div>
             <div className="rule-inputs">
               <div>
-                <label htmlFor="buy">Buy RSI below</label>
+                <label htmlFor="buy">Buy RSI below: </label>
                 <input
                   id="buy"
                   type="number"
@@ -129,7 +129,7 @@ function Dashboard() {
                 />
               </div>
               <div>
-                <label htmlFor="sell">Sell RSI above</label>
+                <label htmlFor="sell">Sell RSI above: </label>
                 <input
                   id="sell"
                   type="number"
@@ -168,7 +168,7 @@ function Dashboard() {
             </div>
             <div className="rule-inputs">
               <div>
-                <label htmlFor="quantity">Quantity</label>
+                <label htmlFor="quantity">Quantity: </label>
                 <input
                   id="quantity"
                   type="number"
@@ -177,7 +177,7 @@ function Dashboard() {
                 />
               </div>
               <div>
-                <label htmlFor="interval">Interval Seconds</label>
+                <label htmlFor="interval">Interval Seconds: </label>
                 <input
                   id="interval"
                   type="number"
