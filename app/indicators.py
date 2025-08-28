@@ -1,7 +1,5 @@
 import pandas as pd
 import pandas_ta as ta
-from ta.momentum import RSIIndicator
-from ta.trend import EMAIndicator, SMAIndicator
 
 
 def compute_indicators(df):

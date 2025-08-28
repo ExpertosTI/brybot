@@ -10,3 +10,4 @@ requests
 python-multipart
 numpy==1.26.4
 pandas==2.2.2
+pandas_ta
