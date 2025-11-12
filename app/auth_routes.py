@@ -1,17 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 from jose import JWTError, jwt
 import os
 from datetime import datetime, timedelta
 from . import models, database
+from .security import hash_password, verify_password
 
 def get_session_token():
     # Placeholder implementation for get_session_token
     return "mocked-session-token"
+
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -27,7 +27,7 @@ def authenticate_user(db: Session, username: str, password: str):
     user = get_user_by_username(db, username)
     if not user:
         return None
-    if not pwd_context.verify(password, user.hashed_password):
+    if not verify_password(password, user.hashed_password):
         return None
     return user
 
@@ -46,7 +46,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 def register(user: models.UserCreate, db: Session = Depends(database.get_db)):
     if get_user_by_username(db, user.username):
         raise HTTPException(status_code=400, detail="Username already registered")
-    hashed = pwd_context.hash(user.password)
+    try:
+        hashed = hash_password(user.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     new_user = models.User(username=user.username, email=user.email, hashed_password=hashed)
     db.add(new_user)
     db.commit()

@@ -1,15 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models import User
-from app.database import Base
-from passlib.context import CryptContext
+from app.security import hash_password
 from datetime import datetime
 
 # Set this to your actual database URL
 DATABASE_URL = "postgresql://tradebot:your_secure_password@localhost/tradebot"
-
-# Set up hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Connect to DB
 engine = create_engine(DATABASE_URL)
@@ -28,13 +24,13 @@ def seed_users():
         User(
             username="admin",
             email="admin@example.com",
-            hashed_password=pwd_context.hash("admin123"),
+            hashed_password=hash_password("admin123"),
             created_at=datetime.utcnow()
         ),
         User(
             username="demo",
             email="demo@example.com",
-            hashed_password=pwd_context.hash("demo123"),
+            hashed_password=hash_password("demo123"),
             created_at=datetime.utcnow()
         )
     ]
