@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from . import auth_routes, models, database, scheduler, contracts
 from .database import engine
 from fastapi.middleware.cors import CORSMiddleware
+from .trading_routes import router as trading_router
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -10,6 +11,7 @@ app = FastAPI()
 app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
 app.include_router(scheduler.router, prefix="/scheduler", tags=["scheduler"])
 app.include_router(contracts.router, tags=["contracts"])
+app.include_router(trading_router, prefix="/trading", tags=["trading"])
 
 app.add_middleware(
     CORSMiddleware,

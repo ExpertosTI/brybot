@@ -8,6 +8,6 @@ passlib[bcrypt]
 python-jose
 requests
 python-multipart
-numpy==1.26.4
-pandas==2.2.2
+numpy>=2.2.6
+pandas>=2.2.3
 pandas_ta

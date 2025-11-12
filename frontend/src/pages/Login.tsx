@@ -9,13 +9,42 @@ function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    // Build proper x-www-form-urlencoded body
+    const body = new URLSearchParams();
+    body.append('username', form.username);
+    body.append('password', form.password);
+    // Some servers like to see this explicitly (safe to include)
+    body.append('grant_type', 'password');
+    // If you use scopes, you can include:
+    // body.append('scope', '');
+
     try {
-      const res = await axios.post('http://localhost:8000/auth/token', new URLSearchParams(form));
-      localStorage.setItem('token', res.data.access_token);
+      const res = await axios.post(
+        'http://localhost:8000/auth/token',
+        body,
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          // If your API sets/reads cookies, also add:
+          // withCredentials: true,
+        }
+      );
+
+      const token = res.data?.access_token ?? res.data?.token; // fallback if your field is named differently
+      if (!token) {
+        console.error('Unexpected token response:', res.data);
+        setError('Login failed: unexpected server response.');
+        return;
+      }
+
+      localStorage.setItem('token', token);
       navigate('/dashboard');
     } catch (err) {
-      if (axios.isAxiosError(err) && err.response) {
-        console.error('Login failed:', `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}`);
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const data = err.response?.data;
+        console.error('Login failed:', { status, data, message: err.message });
       } else {
         console.error('Login failed:', err);
       }
@@ -37,6 +66,7 @@ function Login() {
               onChange={e => setForm({ ...form, username: e.target.value })}
               placeholder="Username"
               aria-describedby={error ? "error-message" : undefined}
+              autoComplete="username"
             />
           </div>
           <div>
@@ -48,6 +78,7 @@ function Login() {
               onChange={e => setForm({ ...form, password: e.target.value })}
               placeholder="Password"
               aria-describedby={error ? "error-message" : undefined}
+              autoComplete="current-password"
             />
           </div>
           {error && (
