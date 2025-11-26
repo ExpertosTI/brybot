@@ -14,6 +14,29 @@ interface TradePrompt {
   quantity: number;
 }
 
+interface MarketStructureSnapshot {
+  divergences: any[];
+  liquidity_sweeps: any[];
+  fair_value_gaps: any[];
+  supply_demand_zones: any[];
+}
+
+interface BacktestResult {
+  trades: Array<{
+    side: string;
+    entry_time: string;
+    exit_time: string;
+    entry_price: number;
+    exit_price: number;
+    pnl: number;
+  }>;
+  total_pnl: number;
+  wins: number;
+  losses: number;
+  signals: Record<string, number>;
+  patterns: Record<string, number>;
+}
+
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [contracts, setContracts] = useState<string[]>([]);
@@ -26,6 +49,19 @@ function Dashboard() {
   const [intervalSeconds, setIntervalSeconds] = useState<number>(60);
   const [countdown, setCountdown] = useState<number>(0);
   const [pendingTrade, setPendingTrade] = useState<TradePrompt | null>(null);
+  const [resolution, setResolution] = useState<string>('1');
+  const [analysisStart, setAnalysisStart] = useState<string>(() => {
+    const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 16);
+  });
+  const [analysisEnd, setAnalysisEnd] = useState<string>(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 16);
+  });
+  const [analysisResult, setAnalysisResult] = useState<MarketStructureSnapshot | null>(null);
+  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
+  const [analysisStatus, setAnalysisStatus] = useState<string>('');
+  const [backtestStatus, setBacktestStatus] = useState<string>('');
   const eventSourceRef = useRef<EventSource | null>(null);
   const navigate = useNavigate();
 
@@ -73,7 +109,7 @@ function Dashboard() {
         setBuyThreshold(30);
         setSellThreshold(70);
       });
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!eventSourceRef.current) return;
@@ -84,6 +120,23 @@ function Dashboard() {
     const id = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(id);
   }, [countdown, intervalSeconds]);
+
+  const unixFromLocal = (val: string) => Math.floor(new Date(val).getTime() / 1000);
+
+  const renderPatternList = (label: string, items: any[], formatter?: (item: any) => string) => (
+    <div className="pattern-block">
+      <h4>{label}</h4>
+      {items.length === 0 ? (
+        <p className="muted">No matches in range.</p>
+      ) : (
+        <ul>
+          {items.map((item, idx) => (
+            <li key={`${label}-${idx}`}>{formatter ? formatter(item) : JSON.stringify(item)}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
   return (
     <div className="container">
@@ -117,6 +170,23 @@ function Dashboard() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="rule-inputs">
+              <div>
+                <label htmlFor="resolution">TradingView Resolution:</label>
+                <select
+                  id="resolution"
+                  value={resolution}
+                  onChange={e => setResolution(e.target.value)}
+                >
+                  <option value="1">1 minute</option>
+                  <option value="3">3 minute</option>
+                  <option value="5">5 minute</option>
+                  <option value="15">15 minute</option>
+                  <option value="60">1 hour</option>
+                  <option value="D">Daily</option>
+                </select>
+              </div>
             </div>
             <div className="rule-inputs">
               <div>
@@ -184,6 +254,14 @@ function Dashboard() {
                   value={intervalSeconds}
                   onChange={e => setIntervalSeconds(Number(e.target.value))}
                 />
+                <div className="interval-pills">
+                  <button type="button" onClick={() => setIntervalSeconds(60)}>
+                    1m
+                  </button>
+                  <button type="button" onClick={() => setIntervalSeconds(180)}>
+                    3m
+                  </button>
+                </div>
               </div>
             </div>
             <div>
@@ -283,6 +361,197 @@ function Dashboard() {
             <button onClick={() => setPendingTrade(null)}>Cancel</button>
           </div>
         )}
+        </div>
+        <div className="analysis-grid">
+          <div className="card">
+            <h3>Market Structure Analysis</h3>
+            <div className="rule-inputs">
+              <div>
+                <label htmlFor="analysis-start">Start</label>
+                <input
+                  id="analysis-start"
+                  type="datetime-local"
+                  value={analysisStart}
+                  onChange={e => setAnalysisStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="analysis-end">End</label>
+                <input
+                  id="analysis-end"
+                  type="datetime-local"
+                  value={analysisEnd}
+                  onChange={e => setAnalysisEnd(e.target.value)}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (!analysisStart || !analysisEnd) {
+                  alert('Please select a start and end time.');
+                  return;
+                }
+                setAnalysisStatus('Loading market structure...');
+                axios
+                  .post('http://localhost:8000/analysis/market-analysis', {
+                    symbol: selectedSymbol,
+                    resolution,
+                    start: unixFromLocal(analysisStart),
+                    end: unixFromLocal(analysisEnd)
+                  })
+                  .then(res => {
+                    setAnalysisResult(res.data);
+                    setAnalysisStatus('');
+                  })
+                  .catch(err => {
+                    console.error('Market analysis failed', err);
+                    setAnalysisStatus('Unable to fetch analysis.');
+                  });
+              }}
+            >
+              Run Analysis
+            </button>
+            {analysisStatus && <p className="muted">{analysisStatus}</p>}
+            {analysisResult && (
+              <div className="analysis-results">
+                {renderPatternList(
+                  'Divergence Signals',
+                  analysisResult.divergences,
+                  item => `${item.divergence_type} between ${item.price1?.toFixed?.(2) ?? item.price1} and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                )}
+                {renderPatternList(
+                  'Liquidity Sweeps',
+                  analysisResult.liquidity_sweeps,
+                  item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                )}
+                {renderPatternList(
+                  'Fair Value Gaps',
+                  analysisResult.fair_value_gaps,
+                  item => `${item.direction} gap ${item.start?.toFixed?.(2) ?? item.start} → ${item.end?.toFixed?.(2) ?? item.end}`
+                )}
+                {renderPatternList(
+                  'Supply / Demand Zones',
+                  analysisResult.supply_demand_zones,
+                  item => `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${item.upper?.toFixed?.(2) ?? item.upper}`
+                )}
+              </div>
+            )}
+          </div>
+          <div className="card">
+            <h3>RSI Strategy Backtest</h3>
+            <p className="muted">
+              Uses the same thresholds above to simulate historical performance with TradingView
+              data.
+            </p>
+            <div className="rule-inputs">
+              <div>
+                <label htmlFor="backtest-start">Start</label>
+                <input
+                  id="backtest-start"
+                  type="datetime-local"
+                  value={analysisStart}
+                  onChange={e => setAnalysisStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="backtest-end">End</label>
+                <input
+                  id="backtest-end"
+                  type="datetime-local"
+                  value={analysisEnd}
+                  onChange={e => setAnalysisEnd(e.target.value)}
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (!analysisStart || !analysisEnd) {
+                  alert('Please select a start and end time.');
+                  return;
+                }
+                setBacktestStatus('Running backtest...');
+                axios
+                  .post('http://localhost:8000/analysis/backtest', {
+                    symbol: selectedSymbol,
+                    resolution,
+                    start: unixFromLocal(analysisStart),
+                    end: unixFromLocal(analysisEnd),
+                    buy_threshold: buyThreshold,
+                    sell_threshold: sellThreshold
+                  })
+                  .then(res => {
+                    setBacktestResult(res.data);
+                    setBacktestStatus('');
+                  })
+                  .catch(err => {
+                    console.error('Backtest failed', err);
+                    setBacktestStatus('Unable to run backtest.');
+                  });
+              }}
+            >
+              Run Backtest
+            </button>
+            {backtestStatus && <p className="muted">{backtestStatus}</p>}
+            {backtestResult && (
+              <div className="backtest-results">
+                <div className="result-row">
+                  <div>
+                    <h4>Performance</h4>
+                    <p>Total PnL: {backtestResult.total_pnl.toFixed(2)}</p>
+                    <p>
+                      Wins: {backtestResult.wins} · Losses: {backtestResult.losses}
+                    </p>
+                  </div>
+                  <div>
+                    <h4>Signals</h4>
+                    <p>Buys: {backtestResult.signals?.buy ?? 0}</p>
+                    <p>Sells: {backtestResult.signals?.sell ?? 0}</p>
+                    <p>Holds: {backtestResult.signals?.hold ?? 0}</p>
+                  </div>
+                  <div>
+                    <h4>Patterns</h4>
+                    <p>Divergences: {backtestResult.patterns?.divergences ?? 0}</p>
+                    <p>Liquidity Sweeps: {backtestResult.patterns?.liquidity_sweeps ?? 0}</p>
+                    <p>Fair Value Gaps: {backtestResult.patterns?.fair_value_gaps ?? 0}</p>
+                    <p>Supply/Demand Zones: {backtestResult.patterns?.supply_demand_zones ?? 0}</p>
+                  </div>
+                </div>
+                <div>
+                  <h4>Trades</h4>
+                  {backtestResult.trades.length === 0 ? (
+                    <p className="muted">No trades executed in this window.</p>
+                  ) : (
+                    <table className="trade-table">
+                      <thead>
+                        <tr>
+                          <th>Side</th>
+                          <th>Entry</th>
+                          <th>Exit</th>
+                          <th>Entry Price</th>
+                          <th>Exit Price</th>
+                          <th>PnL</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {backtestResult.trades.map((trade, idx) => (
+                          <tr key={`trade-${idx}`}>
+                            <td>{trade.side}</td>
+                            <td>{new Date(trade.entry_time).toLocaleString()}</td>
+                            <td>{new Date(trade.exit_time).toLocaleString()}</td>
+                            <td>{trade.entry_price.toFixed(2)}</td>
+                            <td>{trade.exit_price.toFixed(2)}</td>
+                            <td className={trade.pnl >= 0 ? 'positive' : 'negative'}>
+                              {trade.pnl.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       </div>
