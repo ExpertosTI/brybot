@@ -204,6 +204,23 @@ function Dashboard() {
             </div>
             <div className="rule-inputs">
               <div>
+                <label htmlFor="resolution">TradingView Resolution:</label>
+                <select
+                  id="resolution"
+                  value={resolution}
+                  onChange={e => setResolution(e.target.value)}
+                >
+                  <option value="1">1 minute</option>
+                  <option value="3">3 minute</option>
+                  <option value="5">5 minute</option>
+                  <option value="15">15 minute</option>
+                  <option value="60">1 hour</option>
+                  <option value="D">Daily</option>
+                </select>
+              </div>
+            </div>
+            <div className="rule-inputs">
+              <div>
                 <label htmlFor="buy">Buy RSI below: </label>
                 <input
                   id="buy"
