@@ -48,6 +48,29 @@ class BacktestError(Exception):
     """Raised when a backtest cannot be completed."""
 
 
+def _coerce_resolution_minutes(resolution: str) -> int:
+    """Translate TradingView resolution codes into Topstep minute granularity.
+
+    The Topstep history API accepts a ``unit`` of minutes plus an integer multiplier.
+    We therefore map TradingView's string inputs into the minute counts Topstep can
+    consume, expanding support beyond the initial 1m/3m guard so the fallback works
+    for the dashboard's preset options.
+    """
+
+    normalized = resolution.strip().upper()
+    if normalized == "D":
+        return 24 * 60
+
+    if normalized.isdigit():
+        minutes = int(normalized)
+        if minutes > 0:
+            return minutes
+
+    raise BacktestError(
+        "Topstep fallback supports minute or daily resolutions (1,3,5,15,60,D)."
+    )
+
+
 def _fetch_topstep_ohlc(symbol: str, resolution: str, start: int, end: int) -> Dict[str, Any]:
     """Fallback OHLC fetcher that pulls data from Topstep when TradingView fails.
 
@@ -55,8 +78,7 @@ def _fetch_topstep_ohlc(symbol: str, resolution: str, start: int, end: int) -> D
     ``c``, and ``v`` arrays so the rest of the pipeline remains unchanged.
     """
 
-    if resolution not in {"1", "3"}:
-        raise BacktestError("Topstep fallback only supports 1m or 3m resolutions.")
+    minutes = _coerce_resolution_minutes(resolution)
 
     token = get_session_token()
     contract_id = get_contract_id(symbol, token)
@@ -70,7 +92,7 @@ def _fetch_topstep_ohlc(symbol: str, resolution: str, start: int, end: int) -> D
         "startTime": datetime.utcfromtimestamp(start).isoformat() + "Z",
         "endTime": datetime.utcfromtimestamp(end).isoformat() + "Z",
         "unit": 2,  # minutes
-        "unitNumber": int(resolution),
+        "unitNumber": minutes,
         "limit": 500,
         "includePartialBar": False,
     }

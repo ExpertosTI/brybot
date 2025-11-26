@@ -31,6 +31,16 @@ def test_fetch_falls_back_to_topstep(monkeypatch):
     assert result == sample
 
 
+@pytest.mark.parametrize("resolution,expected", [("1", 1), ("5", 5), ("60", 60), ("d", 1440)])
+def test_coerce_resolution_minutes(resolution, expected):
+    assert backtesting._coerce_resolution_minutes(resolution) == expected
+
+
+def test_coerce_resolution_rejects_invalid():
+    with pytest.raises(backtesting.BacktestError):
+        backtesting._coerce_resolution_minutes("bad")
+
+
 def test_run_backtest_handles_fallback(monkeypatch):
     closes = [100 + i * 0.1 for i in range(40)]
     payload = {"t": list(range(len(closes))), "o": closes, "h": closes, "l": closes, "c": closes, "v": [1] * len(closes)}

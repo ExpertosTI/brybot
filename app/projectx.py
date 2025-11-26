@@ -98,7 +98,19 @@ def execute_trade(symbol: str, side: str, quantity: int, token: str):
         response = requests.post(url, headers=headers, json=payload)
         print("Status Code:", response.status_code)
         print("Response:", response.text)
-        response.raise_for_status()
+
+        if not response.ok:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = {"errorMessage": response.text}
+
+            return {
+                "success": False,
+                "status": response.status_code,
+                "errorMessage": payload.get("errorMessage") or payload,
+            }
+
         return response.json()
     except requests.exceptions.RequestException as e:
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}
