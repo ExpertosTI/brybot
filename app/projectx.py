@@ -6,7 +6,8 @@ import json
 
 USER_NAME = os.getenv("TOPSTEP_USER")
 API_KEY = os.getenv("TOPSTEP_API_KEY")
-ACCOUNT_ID = int(os.getenv("TOPSTEP_ACCOUNT_ID"))
+_account_id_raw = os.getenv("TOPSTEP_ACCOUNT_ID")
+ACCOUNT_ID = int(_account_id_raw) if _account_id_raw else None
 BASE_URL = "https://api.topstepx.com"
 
 def get_active_account_id(token):
@@ -97,7 +98,19 @@ def execute_trade(symbol: str, side: str, quantity: int, token: str):
         response = requests.post(url, headers=headers, json=payload)
         print("Status Code:", response.status_code)
         print("Response:", response.text)
-        response.raise_for_status()
+
+        if not response.ok:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = {"errorMessage": response.text}
+
+            return {
+                "success": False,
+                "status": response.status_code,
+                "errorMessage": payload.get("errorMessage") or payload,
+            }
+
         return response.json()
     except requests.exceptions.RequestException as e:
-        return {"error": str(e)}
+        return {"success": False, "error": str(e)}

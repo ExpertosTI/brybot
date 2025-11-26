@@ -23,6 +23,7 @@ BOT_STATE = {
     "auto_trade": True,
     "quantity": 1,
     "interval_seconds": 60,
+    "bar_interval_minutes": 1,
     "stop": False,
 }
 
@@ -35,6 +36,7 @@ class BotConfig(BaseModel):
     auto_trade: bool | None = None
     quantity: int | None = None
     interval_seconds: int | None = None
+    bar_interval_minutes: int | None = None
 
 router = APIRouter()
 
@@ -58,6 +60,8 @@ def update_config(config: BotConfig):
         BOT_STATE["quantity"] = config.quantity
     if config.interval_seconds is not None:
         BOT_STATE["interval_seconds"] = config.interval_seconds
+    if config.bar_interval_minutes is not None:
+        BOT_STATE["bar_interval_minutes"] = config.bar_interval_minutes
     return {"status": "updated", **BOT_STATE}
 
 
@@ -98,7 +102,7 @@ def fetch_price_data(token, contract_id, interval_minutes=1, lookback_minutes=10
         "unit": 2,  # 2 = Minute
         "unitNumber": interval_minutes,
         "limit": lookback_minutes,
-        "includePartialBar": False
+        "includePartialBar": False,
     }
 
     headers = {
@@ -147,6 +151,7 @@ def run_bot(
     buy_threshold: int = 30,
     sell_threshold: int = 70,
     auto_trade: bool = True,
+    bar_interval_minutes: int = 1,
 ):
     """Stream bot output to the client in real time using Server-Sent Events."""
 
@@ -167,7 +172,7 @@ def run_bot(
                 raise StopIteration
 
     def event_stream():
-        nonlocal buy_threshold, sell_threshold, auto_trade, quantity, interval_seconds
+        nonlocal buy_threshold, sell_threshold, auto_trade, quantity, interval_seconds, bar_interval_minutes
         # store initial config in global state
         BOT_STATE.update(
             {
@@ -176,6 +181,7 @@ def run_bot(
                 "auto_trade": auto_trade,
                 "quantity": quantity,
                 "interval_seconds": interval_seconds,
+                "bar_interval_minutes": bar_interval_minutes,
                 "stop": False,
             }
         )
@@ -204,9 +210,18 @@ def run_bot(
             auto_trade = BOT_STATE.get("auto_trade", auto_trade)
             quantity = BOT_STATE.get("quantity", quantity)
             interval_seconds = BOT_STATE.get("interval_seconds", interval_seconds)
+            bar_interval_minutes = BOT_STATE.get("bar_interval_minutes", bar_interval_minutes)
             try:
                 yield log(f"\n⏰ Fetching data at {datetime.now()}")
-                df = fetch_price_data(token=token, contract_id=contract_id)
+                if bar_interval_minutes not in (1, 3):
+                    yield log("⚠️ Interval must be 1 or 3 minutes; defaulting to 1.")
+                    bar_interval = 1
+                else:
+                    bar_interval = bar_interval_minutes
+
+                df = fetch_price_data(
+                    token=token, contract_id=contract_id, interval_minutes=bar_interval
+                )
 
                 if df is None or df.empty:
                     yield log("⚠️ No data returned.")

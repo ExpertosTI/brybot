@@ -37,6 +37,25 @@ h1 {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.muted {
+  color: #6c757d;
+}
+
+.inline-warning {
+  color: #c05621;
+  font-size: 0.9rem;
+  margin-top: -0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.positive {
+  color: #198754;
+}
+
+.negative {
+  color: #dc3545;
+}
+
 .dashboard-header {
   display: flex;
   justify-content: space-between;
@@ -56,6 +75,13 @@ h1 {
   gap: 1.5rem;
 }
 
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
 @media (max-width: 768px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -71,6 +97,12 @@ h1 {
 .button-row {
   display: flex;
   gap: 1rem;
+}
+
+.interval-pills {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 .logs {
@@ -126,4 +158,40 @@ pre {
   padding: 1rem;
   border: 1px solid #ffeeba;
   margin-top: 1rem;
+}
+
+.analysis-results {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.pattern-block ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.backtest-results {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.trade-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.trade-table th,
+.trade-table td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #ddd;
 }
