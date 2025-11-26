@@ -48,4 +48,31 @@ data = client.get_ohlc("AAPL", "1", 1690000000, 1690003600)
 print(data)
 ```
 
-Set `TRADINGVIEW_API_KEY` in your `.env` to authenticate requests.
+Set `TRADINGVIEW_API_KEY` in your `.env` to authenticate requests. If no TradingView
+credentials are available, the analysis and backtest endpoints will fall back to Topstep
+history when a valid Topstep session token and contract lookup are available (supports 1m/3m
+intervals).
+
+### 🧠 Advanced market structure endpoints
+
+The API now exposes richer TradingView-powered analysis under `/analysis`:
+
+- `POST /analysis/market-analysis` – fetch OHLC data from TradingView and return divergence, liquidity sweep, fair value gap, and supply/demand zone detections.
+- `POST /analysis/backtest` – run the RSI-based strategy against historical candles (e.g., 1m or 3m) to see how it would have performed. Returns trade log, PnL, and pattern counts.
+
+Example payload:
+
+```json
+{
+  "symbol": "ES",
+  "resolution": "1",
+  "start": 1690000000,
+  "end": 1690003600,
+  "buy_threshold": 30,
+  "sell_threshold": 70
+}
+```
+
+### ⏱️ Intraday bot intervals
+
+The streaming bot can now fetch either 1-minute or 3-minute bars via the `bar_interval_minutes` parameter on `/scheduler/run-bot`, while still honoring the existing `interval_seconds` poll cadence.
