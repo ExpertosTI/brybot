@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
+const DEFAULT_CONTRACTS = ['ES', 'NQ', 'YM', 'CL', 'GC'];
+
 interface User {
   username: string;
   // Add other properties as needed based on the API response
@@ -39,8 +41,9 @@ interface BacktestResult {
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
-  const [contracts, setContracts] = useState<string[]>([]);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+  const [contracts, setContracts] = useState<string[]>(DEFAULT_CONTRACTS);
+  const [contractNotice, setContractNotice] = useState<string>('');
+  const [selectedSymbol, setSelectedSymbol] = useState<string>(DEFAULT_CONTRACTS[0]);
   const [logs, setLogs] = useState<string[]>([]);
   const [buyThreshold, setBuyThreshold] = useState<number>(30);
   const [sellThreshold, setSellThreshold] = useState<number>(70);
@@ -83,14 +86,24 @@ function Dashboard() {
 
     axios.get('http://localhost:8000/contracts')
       .then(res => {
-        setContracts(res.data.contracts);
-        if (res.data.contracts.length > 0) {
-          setSelectedSymbol(res.data.contracts[0]);
+        const symbols: string[] = res.data.contracts || [];
+        const firstSymbol = symbols[0] || DEFAULT_CONTRACTS[0];
+
+        setContracts(symbols.length ? symbols : DEFAULT_CONTRACTS);
+        setSelectedSymbol(firstSymbol);
+        if (res.data.error) {
+          setContractNotice('Using fallback contracts: ' + res.data.error);
+        } else if (res.data.source === 'fallback' || symbols.length === 0) {
+          setContractNotice('Using fallback contracts until Topstep credentials are configured.');
+        } else {
+          setContractNotice('');
         }
       })
       .catch(err => {
         console.error('Failed to fetch contracts:', err);
-        alert('Could not load contracts list.');
+        setContracts(DEFAULT_CONTRACTS);
+        setSelectedSymbol(DEFAULT_CONTRACTS[0]);
+        setContractNotice('Could not load contracts; showing fallback list.');
       });
 
     axios.get('http://localhost:8000/auth/rules', {
@@ -170,6 +183,24 @@ function Dashboard() {
                   </option>
                 ))}
               </select>
+              {contractNotice && <p className="inline-warning">{contractNotice}</p>}
+            </div>
+            <div className="rule-inputs">
+              <div>
+                <label htmlFor="resolution">TradingView Resolution:</label>
+                <select
+                  id="resolution"
+                  value={resolution}
+                  onChange={e => setResolution(e.target.value)}
+                >
+                  <option value="1">1 minute</option>
+                  <option value="3">3 minute</option>
+                  <option value="5">5 minute</option>
+                  <option value="15">15 minute</option>
+                  <option value="60">1 hour</option>
+                  <option value="D">Daily</option>
+                </select>
+              </div>
             </div>
             <div className="rule-inputs">
               <div>

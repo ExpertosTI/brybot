@@ -41,6 +41,13 @@ h1 {
   color: #6c757d;
 }
 
+.inline-warning {
+  color: #c05621;
+  font-size: 0.9rem;
+  margin-top: -0.5rem;
+  margin-bottom: 0.5rem;
+}
+
 .positive {
   color: #198754;
 }
