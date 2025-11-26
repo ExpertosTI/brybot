@@ -138,13 +138,19 @@ function Dashboard() {
 
   const renderPatternList = (label: string, items: any[], formatter?: (item: any) => string) => (
     <div className="pattern-block">
-      <h4>{label}</h4>
+      <div className="pattern-header">
+        <h4>{label}</h4>
+        <span className="pill">{items.length}</span>
+      </div>
       {items.length === 0 ? (
         <p className="muted">No matches in range.</p>
       ) : (
         <ul>
           {items.map((item, idx) => (
-            <li key={`${label}-${idx}`}>{formatter ? formatter(item) : JSON.stringify(item)}</li>
+            <li key={`${label}-${idx}`}>
+              <span className="bullet" />
+              <span>{formatter ? formatter(item) : JSON.stringify(item)}</span>
+            </li>
           ))}
         </ul>
       )}
@@ -377,8 +383,14 @@ function Dashboard() {
         )}
         </div>
         <div className="analysis-grid">
-          <div className="card">
-            <h3>Market Structure Analysis</h3>
+          <div className="card gradient-card">
+            <div className="card-heading">
+              <div>
+                <p className="eyebrow">Structure insights</p>
+                <h3>Market Structure Analysis</h3>
+              </div>
+              <div className="chip">{selectedSymbol} · {resolution}</div>
+            </div>
             <div className="rule-inputs">
               <div>
                 <label htmlFor="analysis-start">Start</label>
@@ -428,35 +440,58 @@ function Dashboard() {
             {analysisStatus && <p className="muted">{analysisStatus}</p>}
             {analysisResult && (
               <div className="analysis-results">
-                {renderPatternList(
-                  'Divergence Signals',
-                  analysisResult.divergences,
-                  item => `${item.divergence_type} between ${item.price1?.toFixed?.(2) ?? item.price1} and ${item.price2?.toFixed?.(2) ?? item.price2}`
-                )}
-                {renderPatternList(
-                  'Liquidity Sweeps',
-                  analysisResult.liquidity_sweeps,
-                  item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
-                )}
-                {renderPatternList(
-                  'Fair Value Gaps',
-                  analysisResult.fair_value_gaps,
-                  item => `${item.direction} gap ${item.start?.toFixed?.(2) ?? item.start} → ${item.end?.toFixed?.(2) ?? item.end}`
-                )}
-                {renderPatternList(
-                  'Supply / Demand Zones',
-                  analysisResult.supply_demand_zones,
-                  item => `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${item.upper?.toFixed?.(2) ?? item.upper}`
-                )}
+                <div className="stat-grid">
+                  <div className="stat-card">
+                    <p className="eyebrow">Divergences</p>
+                    <p className="stat-value">{analysisResult.divergences.length}</p>
+                  </div>
+                  <div className="stat-card">
+                    <p className="eyebrow">Liquidity sweeps</p>
+                    <p className="stat-value">{analysisResult.liquidity_sweeps.length}</p>
+                  </div>
+                  <div className="stat-card">
+                    <p className="eyebrow">Fair value gaps</p>
+                    <p className="stat-value">{analysisResult.fair_value_gaps.length}</p>
+                  </div>
+                  <div className="stat-card">
+                    <p className="eyebrow">Supply / demand zones</p>
+                    <p className="stat-value">{analysisResult.supply_demand_zones.length}</p>
+                  </div>
+                </div>
+                <div className="pattern-grid">
+                  {renderPatternList(
+                    'Divergence Signals',
+                    analysisResult.divergences,
+                    item => `${item.divergence_type} between ${item.price1?.toFixed?.(2) ?? item.price1} and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                  )}
+                  {renderPatternList(
+                    'Liquidity Sweeps',
+                    analysisResult.liquidity_sweeps,
+                    item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                  )}
+                  {renderPatternList(
+                    'Fair Value Gaps',
+                    analysisResult.fair_value_gaps,
+                    item => `${item.direction} gap ${item.start?.toFixed?.(2) ?? item.start} → ${item.end?.toFixed?.(2) ?? item.end}`
+                  )}
+                  {renderPatternList(
+                    'Supply / Demand Zones',
+                    analysisResult.supply_demand_zones,
+                    item => `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${item.upper?.toFixed?.(2) ?? item.upper}`
+                  )}
+                </div>
               </div>
             )}
           </div>
-          <div className="card">
-            <h3>RSI Strategy Backtest</h3>
-            <p className="muted">
-              Uses the same thresholds above to simulate historical performance with TradingView
-              data.
-            </p>
+          <div className="card gradient-card cool">
+            <div className="card-heading">
+              <div>
+                <p className="eyebrow">Performance simulation</p>
+                <h3>RSI Strategy Backtest</h3>
+              </div>
+              <div className="chip subtle">{analysisStart && analysisEnd ? 'Custom range' : 'Pick a range'}</div>
+            </div>
+            <p className="muted">Uses the same thresholds above to simulate historical performance with TradingView data.</p>
             <div className="rule-inputs">
               <div>
                 <label htmlFor="backtest-start">Start</label>
@@ -509,25 +544,38 @@ function Dashboard() {
             {backtestResult && (
               <div className="backtest-results">
                 <div className="result-row">
-                  <div>
-                    <h4>Performance</h4>
-                    <p>Total PnL: {backtestResult.total_pnl.toFixed(2)}</p>
-                    <p>
-                      Wins: {backtestResult.wins} · Losses: {backtestResult.losses}
+                  <div className="stat-card">
+                    <p className="eyebrow">Total PnL</p>
+                    <p className={`stat-value ${backtestResult.total_pnl >= 0 ? 'positive' : 'negative'}`}>
+                      {backtestResult.total_pnl.toFixed(2)}
                     </p>
+                    <p className="caption">Across {backtestResult.trades.length} trades</p>
                   </div>
-                  <div>
-                    <h4>Signals</h4>
-                    <p>Buys: {backtestResult.signals?.buy ?? 0}</p>
-                    <p>Sells: {backtestResult.signals?.sell ?? 0}</p>
-                    <p>Holds: {backtestResult.signals?.hold ?? 0}</p>
+                  <div className="stat-card">
+                    <p className="eyebrow">Win rate</p>
+                    <p className="stat-value">
+                      {backtestResult.wins + backtestResult.losses === 0
+                        ? '—'
+                        : `${Math.round((backtestResult.wins / (backtestResult.wins + backtestResult.losses)) * 100)}%`}
+                    </p>
+                    <p className="caption">{backtestResult.wins} wins · {backtestResult.losses} losses</p>
                   </div>
-                  <div>
-                    <h4>Patterns</h4>
-                    <p>Divergences: {backtestResult.patterns?.divergences ?? 0}</p>
-                    <p>Liquidity Sweeps: {backtestResult.patterns?.liquidity_sweeps ?? 0}</p>
-                    <p>Fair Value Gaps: {backtestResult.patterns?.fair_value_gaps ?? 0}</p>
-                    <p>Supply/Demand Zones: {backtestResult.patterns?.supply_demand_zones ?? 0}</p>
+                  <div className="stat-card">
+                    <p className="eyebrow">Signals fired</p>
+                    <div className="chip-row">
+                      <span className="chip subtle">Buys {backtestResult.signals?.buy ?? 0}</span>
+                      <span className="chip subtle">Sells {backtestResult.signals?.sell ?? 0}</span>
+                      <span className="chip subtle">Holds {backtestResult.signals?.hold ?? 0}</span>
+                    </div>
+                  </div>
+                  <div className="stat-card">
+                    <p className="eyebrow">Pattern matches</p>
+                    <div className="chip-row">
+                      <span className="chip subtle">Divergences {backtestResult.patterns?.divergences ?? 0}</span>
+                      <span className="chip subtle">Sweeps {backtestResult.patterns?.liquidity_sweeps ?? 0}</span>
+                      <span className="chip subtle">FVGs {backtestResult.patterns?.fair_value_gaps ?? 0}</span>
+                      <span className="chip subtle">S/D {backtestResult.patterns?.supply_demand_zones ?? 0}</span>
+                    </div>
                   </div>
                 </div>
                 <div>
