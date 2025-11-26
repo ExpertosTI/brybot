@@ -6,7 +6,8 @@ import json
 
 USER_NAME = os.getenv("TOPSTEP_USER")
 API_KEY = os.getenv("TOPSTEP_API_KEY")
-ACCOUNT_ID = int(os.getenv("TOPSTEP_ACCOUNT_ID"))
+_account_id_raw = os.getenv("TOPSTEP_ACCOUNT_ID")
+ACCOUNT_ID = int(_account_id_raw) if _account_id_raw else None
 BASE_URL = "https://api.topstepx.com"
 
 def get_active_account_id(token):

@@ -48,7 +48,10 @@ data = client.get_ohlc("AAPL", "1", 1690000000, 1690003600)
 print(data)
 ```
 
-Set `TRADINGVIEW_API_KEY` in your `.env` to authenticate requests.
+Set `TRADINGVIEW_API_KEY` in your `.env` to authenticate requests. If no TradingView
+credentials are available, the analysis and backtest endpoints will fall back to Topstep
+history when a valid Topstep session token and contract lookup are available (supports 1m/3m
+intervals).
 
 ### 🧠 Advanced market structure endpoints
 
