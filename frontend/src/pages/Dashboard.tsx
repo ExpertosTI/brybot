@@ -675,6 +675,119 @@ function Dashboard() {
                       <p className="tiny muted">Supply/Demand zones</p>
                       <strong>{analysisResult.supply_demand_zones.length}</strong>
                     </div>
+                    <div className="stat">
+                      <p className="tiny muted">Liquidity sweeps</p>
+                      <strong>{analysisResult.liquidity_sweeps.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Fair value gaps</p>
+                      <strong>{analysisResult.fair_value_gaps.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Supply/Demand zones</p>
+                      <strong>{analysisResult.supply_demand_zones.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Supply/Demand zones</p>
+                      <strong>{analysisResult.supply_demand_zones.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Supply/Demand zones</p>
+                      <strong>{analysisResult.supply_demand_zones.length}</strong>
+                    </div>
+                  </div>
+                  <div className="pattern-grid">
+                    {renderPatternList(
+                      'Divergence Signals',
+                      analysisResult.divergences,
+                      item =>
+                        `${item.divergence_type} between ${
+                          item.price1?.toFixed?.(2) ?? item.price1
+                        } and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                    )}
+                    {renderPatternList(
+                      'Liquidity Sweeps',
+                      analysisResult.liquidity_sweeps,
+                      item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                    )}
+                    {renderPatternList(
+                      'Fair Value Gaps',
+                      analysisResult.fair_value_gaps,
+                      item =>
+                        `${item.direction} gap ${
+                          item.start?.toFixed?.(2) ?? item.start
+                        } → ${item.end?.toFixed?.(2) ?? item.end}`
+                    )}
+                    {renderPatternList(
+                      'Supply / Demand Zones',
+                      analysisResult.supply_demand_zones,
+                      item =>
+                        `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${
+                          item.upper?.toFixed?.(2) ?? item.upper
+                        }`
+                    )}
+                  </div>
+                  <div className="pattern-grid">
+                    {renderPatternList(
+                      'Divergence Signals',
+                      analysisResult.divergences,
+                      item =>
+                        `${item.divergence_type} between ${
+                          item.price1?.toFixed?.(2) ?? item.price1
+                        } and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                    )}
+                    {renderPatternList(
+                      'Liquidity Sweeps',
+                      analysisResult.liquidity_sweeps,
+                      item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                    )}
+                    {renderPatternList(
+                      'Fair Value Gaps',
+                      analysisResult.fair_value_gaps,
+                      item =>
+                        `${item.direction} gap ${
+                          item.start?.toFixed?.(2) ?? item.start
+                        } → ${item.end?.toFixed?.(2) ?? item.end}`
+                    )}
+                    {renderPatternList(
+                      'Supply / Demand Zones',
+                      analysisResult.supply_demand_zones,
+                      item =>
+                        `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${
+                          item.upper?.toFixed?.(2) ?? item.upper
+                        }`
+                    )}
+                  </div>
+                  <div className="pattern-grid">
+                    {renderPatternList(
+                      'Divergence Signals',
+                      analysisResult.divergences,
+                      item =>
+                        `${item.divergence_type} between ${
+                          item.price1?.toFixed?.(2) ?? item.price1
+                        } and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                    )}
+                    {renderPatternList(
+                      'Liquidity Sweeps',
+                      analysisResult.liquidity_sweeps,
+                      item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                    )}
+                    {renderPatternList(
+                      'Fair Value Gaps',
+                      analysisResult.fair_value_gaps,
+                      item =>
+                        `${item.direction} gap ${
+                          item.start?.toFixed?.(2) ?? item.start
+                        } → ${item.end?.toFixed?.(2) ?? item.end}`
+                    )}
+                    {renderPatternList(
+                      'Supply / Demand Zones',
+                      analysisResult.supply_demand_zones,
+                      item =>
+                        `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${
+                          item.upper?.toFixed?.(2) ?? item.upper
+                        }`
+                    )}
                   </div>
                   <div className="pattern-grid">
                     {renderPatternList(
@@ -739,6 +852,7 @@ function Dashboard() {
                     onChange={e => setAnalysisEnd(e.target.value)}
                   />
                 </div>
+                <span className="pill subtle">Aligned w/ live config</span>
               </div>
               <div className="button-row spaced">
                 <button
