@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, API_BASE_URL } from '../api';
-import {
-  Area,
-  AreaChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from 'recharts';
 
 const DEFAULT_CONTRACTS = ['ES', 'NQ', 'YM', 'CL', 'GC'];
 const RESOLUTION_LABELS: Record<string, string> = {
@@ -80,6 +72,40 @@ const renderPatternList = (
     )}
   </div>
 );
+
+const EquitySparkline = ({ data }: { data: Array<{ time: string; equity: number }> }) => {
+  const gradientId = useMemo(() => `equity-${Math.random().toString(36).slice(2)}`, []);
+
+  if (!data.length) return null;
+
+  const values = data.map(point => point.equity);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const points = data
+    .map((point, idx) => {
+      const x = (idx / (data.length - 1 || 1)) * 100;
+      const y = 100 - ((point.equity - min) / range) * 100;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(' ');
+
+  const areaPoints = `${points} 100,100 0,100`;
+
+  return (
+    <svg className="sparkline" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Equity curve">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+      <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="2" />
+    </svg>
+  );
+};
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -622,6 +648,41 @@ function Dashboard() {
                       <p className="tiny muted">Supply/Demand zones</p>
                       <strong>{analysisResult.supply_demand_zones.length}</strong>
                     </div>
+                    <div className="stat">
+                      <p className="tiny muted">Supply/Demand zones</p>
+                      <strong>{analysisResult.supply_demand_zones.length}</strong>
+                    </div>
+                  </div>
+                  <div className="pattern-grid">
+                    {renderPatternList(
+                      'Divergence Signals',
+                      analysisResult.divergences,
+                      item =>
+                        `${item.divergence_type} between ${
+                          item.price1?.toFixed?.(2) ?? item.price1
+                        } and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                    )}
+                    {renderPatternList(
+                      'Liquidity Sweeps',
+                      analysisResult.liquidity_sweeps,
+                      item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                    )}
+                    {renderPatternList(
+                      'Fair Value Gaps',
+                      analysisResult.fair_value_gaps,
+                      item =>
+                        `${item.direction} gap ${
+                          item.start?.toFixed?.(2) ?? item.start
+                        } → ${item.end?.toFixed?.(2) ?? item.end}`
+                    )}
+                    {renderPatternList(
+                      'Supply / Demand Zones',
+                      analysisResult.supply_demand_zones,
+                      item =>
+                        `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${
+                          item.upper?.toFixed?.(2) ?? item.upper
+                        }`
+                    )}
                   </div>
                   <div className="pattern-grid">
                     {renderPatternList(
@@ -686,6 +747,7 @@ function Dashboard() {
                     onChange={e => setAnalysisEnd(e.target.value)}
                   />
                 </div>
+                <span className="pill subtle">Aligned w/ live config</span>
               </div>
               <div className="button-row spaced">
                 <button
@@ -767,28 +829,11 @@ function Dashboard() {
 
                   {backtestEquity.length > 0 && (
                     <div className="chart-block">
-                      <p className="tiny muted">Equity Curve</p>
-                      <ResponsiveContainer width="100%" height={180}>
-                        <AreaChart data={backtestEquity} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="equityGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.6} />
-                              <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <XAxis dataKey="time" hide />
-                          <YAxis hide domain={[dataMin => dataMin * 0.95, dataMax => dataMax * 1.05]} />
-                          <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1f2937', color: '#e2e8f0' }} />
-                          <Area
-                            type="monotone"
-                            dataKey="equity"
-                            stroke="#38bdf8"
-                            fill="url(#equityGradient)"
-                            strokeWidth={2}
-                            dot={false}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                      <div className="chart-header">
+                        <p className="tiny muted">Equity Curve</p>
+                        <span className="pill subtle">{backtestEquity.length} points</span>
+                      </div>
+                      <EquitySparkline data={backtestEquity} />
                     </div>
                   )}
 
