@@ -223,7 +223,7 @@ function Dashboard() {
       eventSourceRef.current = null;
     }
 
-    const url = `${API_BASE_URL}/scheduler/stream?symbol=${encodeURIComponent(
+    const url = `${API_BASE_URL}/scheduler/run-bot?symbol=${encodeURIComponent(
       selectedSymbol
     )}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}&quantity=${quantity}&interval_seconds=${intervalSeconds}`;
 
@@ -652,6 +652,41 @@ function Dashboard() {
                       <p className="tiny muted">Supply/Demand zones</p>
                       <strong>{analysisResult.supply_demand_zones.length}</strong>
                     </div>
+                    <div className="stat">
+                      <p className="tiny muted">Supply/Demand zones</p>
+                      <strong>{analysisResult.supply_demand_zones.length}</strong>
+                    </div>
+                  </div>
+                  <div className="pattern-grid">
+                    {renderPatternList(
+                      'Divergence Signals',
+                      analysisResult.divergences,
+                      item =>
+                        `${item.divergence_type} between ${
+                          item.price1?.toFixed?.(2) ?? item.price1
+                        } and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                    )}
+                    {renderPatternList(
+                      'Liquidity Sweeps',
+                      analysisResult.liquidity_sweeps,
+                      item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                    )}
+                    {renderPatternList(
+                      'Fair Value Gaps',
+                      analysisResult.fair_value_gaps,
+                      item =>
+                        `${item.direction} gap ${
+                          item.start?.toFixed?.(2) ?? item.start
+                        } → ${item.end?.toFixed?.(2) ?? item.end}`
+                    )}
+                    {renderPatternList(
+                      'Supply / Demand Zones',
+                      analysisResult.supply_demand_zones,
+                      item =>
+                        `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${
+                          item.upper?.toFixed?.(2) ?? item.upper
+                        }`
+                    )}
                   </div>
                   <div className="pattern-grid">
                     {renderPatternList(
