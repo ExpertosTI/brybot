@@ -1,93 +1,102 @@
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { api, API_BASE_URL } from '../api';
 
 function Login() {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const expired = (location.state as { expired?: boolean } | null)?.expired;
+  const loggedOut = (location.state as { loggedOut?: boolean } | null)?.loggedOut;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true);
 
-    // Build proper x-www-form-urlencoded body
     const body = new URLSearchParams();
     body.append('username', form.username);
     body.append('password', form.password);
-    // Some servers like to see this explicitly (safe to include)
     body.append('grant_type', 'password');
-    // If you use scopes, you can include:
-    // body.append('scope', '');
 
     try {
-      const res = await axios.post(
-        'http://localhost:8000/auth/token',
-        body,
-        {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          // If your API sets/reads cookies, also add:
-          // withCredentials: true,
-        }
-      );
-
-      const token = res.data?.access_token ?? res.data?.token; // fallback if your field is named differently
+      const res = await api.post('/auth/token', body, {
+        baseURL: API_BASE_URL,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      const token = res.data?.access_token ?? res.data?.token;
       if (!token) {
-        console.error('Unexpected token response:', res.data);
         setError('Login failed: unexpected server response.');
+        setIsLoading(false);
         return;
       }
-
       localStorage.setItem('token', token);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const status = err.response?.status;
-        const data = err.response?.data;
-        console.error('Login failed:', { status, data, message: err.message });
-      } else {
-        console.error('Login failed:', err);
-      }
+      console.error('Login failed', err);
       setError('Login failed. Please check your username and password.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="container login-container">
-      <div className="card">
-        <h1>Login</h1>
-        <form onSubmit={handleSubmit}>
+    <div className="auth-shell">
+      <div className="login-panel">
+        <div className="login-header">
           <div>
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              value={form.username}
-              onChange={e => setForm({ ...form, username: e.target.value })}
-              placeholder="Username"
-              aria-describedby={error ? "error-message" : undefined}
-              autoComplete="username"
-            />
+            <p className="eyebrow">TopStep MVP Bot</p>
+            <h1>Sign in</h1>
+            <p className="muted">Connect to monitor the RSI bot and manage sessions.</p>
           </div>
-          <div>
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={form.password}
-              onChange={e => setForm({ ...form, password: e.target.value })}
-              placeholder="Password"
-              aria-describedby={error ? "error-message" : undefined}
-              autoComplete="current-password"
-            />
+          <span className="pill status success">Secure</span>
+        </div>
+        {loggedOut && (
+          <div className="inline-alert" role="status" aria-live="polite">
+            You have been logged out.
           </div>
-          {error && (
-            <div id="error-message" role="alert" aria-live="assertive" style={{ color: 'red' }}>
-              {error}
-            </div>
-          )}
-          <button type="submit">Login</button>
+        )}
+        {expired && (
+          <div className="inline-alert warning" role="alert" aria-live="polite">
+            Your session expired. Please log in again.
+          </div>
+        )}
+        {error && (
+          <div className="inline-alert danger" role="alert" aria-live="assertive">
+            {error}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="login-form">
+          <label htmlFor="username">Username</label>
+          <input
+            id="username"
+            type="text"
+            value={form.username}
+            onChange={e => setForm({ ...form, username: e.target.value })}
+            placeholder="Username"
+            autoComplete="username"
+            required
+            disabled={isLoading}
+          />
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            value={form.password}
+            onChange={e => setForm({ ...form, password: e.target.value })}
+            placeholder="Password"
+            autoComplete="current-password"
+            required
+            disabled={isLoading}
+          />
+          <button type="submit" className="primary" disabled={isLoading}>
+            {isLoading ? 'Logging in…' : 'Login'}
+          </button>
         </form>
+        <p className="tiny muted">API: {API_BASE_URL}</p>
       </div>
     </div>
   );
