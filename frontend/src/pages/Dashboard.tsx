@@ -1,29 +1,36 @@
-import { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api, API_BASE_URL } from '../api';
 
 const DEFAULT_CONTRACTS = ['ES', 'NQ', 'YM', 'CL', 'GC'];
+const RESOLUTION_LABELS: Record<string, string> = {
+  '1': '1m',
+  '3': '3m',
+  '5': '5m',
+  '15': '15m',
+  '60': '1h',
+  D: '1D'
+};
 
-interface User {
-  username: string;
-  // Add other properties as needed based on the API response
-}
+type SessionState = 'Idle' | 'Live' | 'Error';
 
-interface TradePrompt {
+type User = { username: string };
+
+type TradePrompt = {
   side: string;
   price: number;
   symbol: string;
   quantity: number;
-}
+};
 
-interface MarketStructureSnapshot {
+type MarketStructureSnapshot = {
   divergences: any[];
   liquidity_sweeps: any[];
   fair_value_gaps: any[];
   supply_demand_zones: any[];
-}
+};
 
-interface BacktestResult {
+type BacktestResult = {
   trades: Array<{
     side: string;
     entry_time: string;
@@ -37,22 +44,87 @@ interface BacktestResult {
   losses: number;
   signals: Record<string, number>;
   patterns: Record<string, number>;
-}
+};
+
+const unixFromLocal = (value: string) => Math.floor(new Date(value).getTime() / 1000);
+
+const renderPatternList = (
+  title: string,
+  data: any[],
+  formatter: (item: any) => string
+) => (
+  <div className="mini-card">
+    <div className="pattern-header">
+      <h4>{title}</h4>
+      <span className="pill subtle">{data.length}</span>
+    </div>
+    {data.length === 0 ? (
+      <p className="muted tiny">No matches in range.</p>
+    ) : (
+      <ul className="pattern-list">
+        {data.map((item, idx) => (
+          <li key={`${title}-${idx}`}>
+            <span className="bullet" />
+            <span>{formatter(item)}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+);
+
+const EquitySparkline = ({ data }: { data: Array<{ time: string; equity: number }> }) => {
+  const gradientId = useMemo(() => `equity-${Math.random().toString(36).slice(2)}`, []);
+
+  if (!data.length) return null;
+
+  const values = data.map(point => point.equity);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const points = data
+    .map((point, idx) => {
+      const x = (idx / (data.length - 1 || 1)) * 100;
+      const y = 100 - ((point.equity - min) / range) * 100;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(' ');
+
+  const areaPoints = `${points} 100,100 0,100`;
+
+  return (
+    <svg className="sparkline" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Equity curve">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+      <polyline points={points} fill="none" stroke="var(--accent)" strokeWidth="2" />
+    </svg>
+  );
+};
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [contracts, setContracts] = useState<string[]>(DEFAULT_CONTRACTS);
   const [contractNotice, setContractNotice] = useState<string>('');
   const [selectedSymbol, setSelectedSymbol] = useState<string>(DEFAULT_CONTRACTS[0]);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [resolution, setResolution] = useState<string>('1');
   const [buyThreshold, setBuyThreshold] = useState<number>(30);
   const [sellThreshold, setSellThreshold] = useState<number>(70);
-  const [autoTrade, setAutoTrade] = useState<boolean>(true);
+  const [autoTrade, setAutoTrade] = useState<boolean>(false);
   const [quantity, setQuantity] = useState<number>(1);
   const [intervalSeconds, setIntervalSeconds] = useState<number>(60);
-  const [countdown, setCountdown] = useState<number>(0);
+  const [logs, setLogs] = useState<string[]>([]);
   const [pendingTrade, setPendingTrade] = useState<TradePrompt | null>(null);
-  const [resolution, setResolution] = useState<string>('1');
+  const [countdown, setCountdown] = useState<number>(0);
+  const [sessionState, setSessionState] = useState<SessionState>('Idle');
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected'>(
+    'disconnected'
+  );
   const [analysisStart, setAnalysisStart] = useState<string>(() => {
     const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
     return d.toISOString().slice(0, 16);
@@ -62,29 +134,42 @@ function Dashboard() {
     return d.toISOString().slice(0, 16);
   });
   const [analysisResult, setAnalysisResult] = useState<MarketStructureSnapshot | null>(null);
-  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [analysisStatus, setAnalysisStatus] = useState<string>('');
+  const [analysisError, setAnalysisError] = useState<string>('');
+  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [backtestStatus, setBacktestStatus] = useState<string>('');
+  const [backtestError, setBacktestError] = useState<string>('');
+
   const eventSourceRef = useRef<EventSource | null>(null);
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get('http://localhost:8000/auth/me', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => setUser(res.data))
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    api
+      .get('/auth/me')
+      .then(res => {
+        setUser(res.data);
+        setConnectionStatus('connected');
+      })
       .catch(err => {
         if (err.response && err.response.status === 401) {
-          alert('Session expired. Please log in again.');
           localStorage.removeItem('token');
-          navigate('/');
+          navigate('/', { replace: true, state: { expired: true } });
         } else {
-          console.error('An error occurred:', err);
-          alert('An error occurred while fetching user data.');
+          setConnectionStatus('disconnected');
         }
       });
 
-    axios.get('http://localhost:8000/contracts')
+    api
+      .get('/contracts')
       .then(res => {
         const symbols: string[] = res.data.contracts || [];
         const firstSymbol = symbols[0] || DEFAULT_CONTRACTS[0];
@@ -99,524 +184,666 @@ function Dashboard() {
           setContractNotice('');
         }
       })
-      .catch(err => {
-        console.error('Failed to fetch contracts:', err);
+      .catch(() => {
         setContracts(DEFAULT_CONTRACTS);
         setSelectedSymbol(DEFAULT_CONTRACTS[0]);
         setContractNotice('Could not load contracts; showing fallback list.');
       });
 
-    axios.get('http://localhost:8000/auth/rules', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
+    api
+      .get('/auth/rules')
       .then(res => {
-        // API may return null if the user record predates rule columns
         const buy = res.data.buy_threshold ?? 30;
         const sell = res.data.sell_threshold ?? 70;
         setBuyThreshold(buy);
         setSellThreshold(sell);
       })
-      .catch(err => {
-        console.error('Failed to fetch rules:', err);
-        // fallback to defaults if the request fails
+      .catch(() => {
         setBuyThreshold(30);
         setSellThreshold(70);
       });
   }, [navigate]);
 
   useEffect(() => {
-    if (!eventSourceRef.current) return;
-    if (countdown <= 0) {
-      setCountdown(intervalSeconds);
-      return;
+    if (countdown <= 0 || sessionState !== 'Live') return;
+    const timer = setInterval(() => {
+      setCountdown(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown, sessionState]);
+
+  useEffect(() => {
+    if (!logContainerRef.current) return;
+    logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+  }, [logs, pendingTrade]);
+
+  const startStream = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
-    const id = setTimeout(() => setCountdown(c => c - 1), 1000);
-    return () => clearTimeout(id);
-  }, [countdown, intervalSeconds]);
 
-  const unixFromLocal = (val: string) => Math.floor(new Date(val).getTime() / 1000);
+    const url = `${API_BASE_URL}/scheduler/run-bot?symbol=${encodeURIComponent(
+      selectedSymbol
+    )}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}&quantity=${quantity}&interval_seconds=${intervalSeconds}`;
 
-  const renderPatternList = (label: string, items: any[], formatter?: (item: any) => string) => (
-    <div className="pattern-block">
-      <div className="pattern-header">
-        <h4>{label}</h4>
-        <span className="pill">{items.length}</span>
-      </div>
-      {items.length === 0 ? (
-        <p className="muted">No matches in range.</p>
-      ) : (
-        <ul>
-          {items.map((item, idx) => (
-            <li key={`${label}-${idx}`}>
-              <span className="bullet" />
-              <span>{formatter ? formatter(item) : JSON.stringify(item)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
+    const es = new EventSource(url);
+    eventSourceRef.current = es;
+    setLogs([]);
+    setPendingTrade(null);
+    setSessionState('Live');
+    setCountdown(intervalSeconds);
+
+    es.onopen = () => setConnectionStatus('connected');
+
+    es.onmessage = e => {
+      const msg = e.data;
+      try {
+        const obj = JSON.parse(msg);
+        if (obj.type === 'prompt') {
+          setPendingTrade(obj);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+
+      setLogs(prev => {
+        const next = [...prev, msg];
+        return next.slice(-200);
+      });
+
+      if (msg.includes('⏰ Fetching data')) {
+        setCountdown(intervalSeconds);
+      }
+    };
+
+    es.onerror = err => {
+      console.error('EventSource failed:', err);
+      setSessionState('Error');
+      setConnectionStatus('disconnected');
+      es.close();
+      eventSourceRef.current = null;
+    };
+  };
+
+  const stopStream = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    api.post('/scheduler/stop-bot').catch(err => console.error('Failed to stop bot', err));
+    setSessionState('Idle');
+    setCountdown(0);
+  };
+
+  const approveTrade = () => {
+    if (!pendingTrade) return;
+    api
+      .post('/scheduler/execute-trade', pendingTrade)
+      .then(() => setLogs(prev => [...prev, 'Manual trade executed']))
+      .catch(err => {
+        console.error('Manual trade failed', err);
+        setLogs(prev => [...prev, 'Manual trade failed']);
+      });
+    setPendingTrade(null);
+  };
+
+  const backtestEquity = useMemo(() => {
+    if (!backtestResult) return [] as Array<{ time: string; equity: number }>;
+    let running = 0;
+    return backtestResult.trades
+      .slice()
+      .sort((a, b) => new Date(a.exit_time).getTime() - new Date(b.exit_time).getTime())
+      .map(trade => {
+        running += trade.pnl;
+        return { time: new Date(trade.exit_time).toLocaleString(), equity: running };
+      });
+  }, [backtestResult]);
+
+  const sessionSummary = {
+    mode: autoTrade ? 'Auto Trade' : 'Signal Only',
+    latestLog: logs[logs.length - 1] ?? 'Waiting for activity...',
+    symbol: `${selectedSymbol} · ${RESOLUTION_LABELS[resolution] || resolution}`,
+  };
 
   return (
-    <div className="container">
-      <div className="card dashboard-card">
-        <header className="dashboard-header">
-          <h1>Dashboard</h1>
-          <div className="header-right">
-            <span>Welcome {user?.username}</span>
-            <button
-              onClick={() => {
-                localStorage.removeItem('token');
-                navigate('/');
-              }}
-            >
-              Logout
-            </button>
+    <div className="dashboard-shell">
+      <header className="topbar">
+        <div className="topbar-left">
+          <div>
+            <p className="eyebrow">TopStep MVP Bot</p>
+            <div className="app-title">Trading Orchestrator</div>
           </div>
-        </header>
-        <div className="dashboard-grid">
-          <div className="controls">
+          <span className="pill subtle">demo</span>
+        </div>
+        <div className="topbar-center">
+          <span className="badge">{sessionSummary.symbol}</span>
+        </div>
+        <div className="topbar-right">
+          <div className="topbar-meta">
+            <p className="tiny muted">Logged in</p>
+            <strong>{user?.username ?? '—'}</strong>
+          </div>
+          <div className="topbar-meta">
+            <p className="tiny muted">Session</p>
+            <span className={`status-dot ${sessionState.toLowerCase()}`}>
+              {sessionState}
+            </span>
+          </div>
+          <div className="topbar-meta">
+            <p className="tiny muted">Backend</p>
+            <span className={`status-dot ${connectionStatus}`}>
+              {connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="layout">
+        <aside className="panel card">
+          <div className="panel-header">
             <div>
-              <label htmlFor="contract-select">Contract:</label>
+              <p className="eyebrow">Strategy & Session</p>
+              <h2>Control Center</h2>
+            </div>
+            <span className="pill">RSI</span>
+          </div>
+
+          <div className="control-group">
+            <label>Symbol</label>
+            <div className="input-row">
               <select
-                id="contract-select"
                 value={selectedSymbol}
                 onChange={e => setSelectedSymbol(e.target.value)}
               >
-                {contracts.map(c => (
-                  <option key={c} value={c}>
-                    {c}
+                {contracts.map(symbol => (
+                  <option key={symbol} value={symbol}>
+                    {symbol}
                   </option>
                 ))}
               </select>
-              {contractNotice && <p className="inline-warning">{contractNotice}</p>}
+              {contractNotice && <span className="pill warning">Fallback</span>}
             </div>
-            <div className="rule-inputs">
-              <div>
-                <label htmlFor="resolution">TradingView Resolution:</label>
-                <select
-                  id="resolution"
-                  value={resolution}
-                  onChange={e => setResolution(e.target.value)}
-                >
-                  <option value="1">1 minute</option>
-                  <option value="3">3 minute</option>
-                  <option value="5">5 minute</option>
-                  <option value="15">15 minute</option>
-                  <option value="60">1 hour</option>
-                  <option value="D">Daily</option>
-                </select>
-              </div>
-            </div>
-            <div className="rule-inputs">
-              <div>
-                <label htmlFor="buy">Buy RSI below: </label>
-                <input
-                  id="buy"
-                  type="number"
-                  value={buyThreshold}
-                  onChange={e => setBuyThreshold(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label htmlFor="sell">Sell RSI above: </label>
-                <input
-                  id="sell"
-                  type="number"
-                  value={sellThreshold}
-                  onChange={e => setSellThreshold(Number(e.target.value))}
-                />
-              </div>
-              <button
-                onClick={() => {
-                  axios
-                    .put(
-                      'http://localhost:8000/auth/rules',
-                      {
-                        buy_threshold: buyThreshold,
-                        sell_threshold: sellThreshold
-                      },
-                      {
-                        headers: {
-                          Authorization: `Bearer ${localStorage.getItem('token')}`
-                        }
-                      }
-                    )
-                    .catch(err => console.error('Failed to update rules', err));
-                  axios
-                    .post('http://localhost:8000/scheduler/update-config', {
-                      buy_threshold: buyThreshold,
-                      sell_threshold: sellThreshold,
-                      quantity,
-                      interval_seconds: intervalSeconds
-                    })
-                    .catch(err => console.error('Failed to sync bot rules', err));
-                }}
-              >
-                Save Rules
-              </button>
-            </div>
-            <div className="rule-inputs">
-              <div>
-                <label htmlFor="quantity">Quantity: </label>
-                <input
-                  id="quantity"
-                  type="number"
-                  value={quantity}
-                  onChange={e => setQuantity(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label htmlFor="interval">Interval Seconds: </label>
-                <input
-                  id="interval"
-                  type="number"
-                  value={intervalSeconds}
-                  onChange={e => setIntervalSeconds(Number(e.target.value))}
-                />
-                <div className="interval-pills">
-                  <button type="button" onClick={() => setIntervalSeconds(60)}>
-                    1m
-                  </button>
-                  <button type="button" onClick={() => setIntervalSeconds(180)}>
-                    3m
-                  </button>
-                </div>
-              </div>
+            {contractNotice && <p className="muted tiny">{contractNotice}</p>}
+          </div>
+
+          <div className="control-inline">
+            <div>
+              <label>Resolution</label>
+              <select value={resolution} onChange={e => setResolution(e.target.value)}>
+                <option value="1">1 minute</option>
+                <option value="3">3 minute</option>
+                <option value="5">5 minute</option>
+                <option value="15">15 minute</option>
+                <option value="60">1 hour</option>
+                <option value="D">Daily</option>
+              </select>
             </div>
             <div>
-              <label htmlFor="auto-toggle">Automated Trading</label>
+              <label>Quantity</label>
               <input
-                id="auto-toggle"
-                type="checkbox"
-                checked={autoTrade}
-                onChange={e => {
-                  const val = e.target.checked;
-                  setAutoTrade(val);
-                  axios
-                    .post('http://localhost:8000/scheduler/update-config', {
-                      auto_trade: val
-                    })
-                    .catch(err => console.error('Failed to update auto trade', err));
-                }}
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={e => setQuantity(Number(e.target.value))}
               />
             </div>
-            <div className="button-row">
-              <button
-                onClick={() => {
-                  if (eventSourceRef.current) {
-                    eventSourceRef.current.close();
-                    eventSourceRef.current = null;
-                  }
-
-                  const url = `http://localhost:8000/scheduler/run-bot?symbol=${encodeURIComponent(selectedSymbol)}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}&quantity=${quantity}&interval_seconds=${intervalSeconds}`;
-                  const es = new EventSource(url);
-                  eventSourceRef.current = es;
-                  setLogs([]);
-                  setCountdown(intervalSeconds);
-                  es.onmessage = e => {
-                    const msg = e.data;
-                    try {
-                      const obj = JSON.parse(msg);
-                      if (obj.type === 'prompt') {
-                        setPendingTrade(obj);
-                        return;
-                      }
-                    } catch {
-                      // not JSON, fall through
-                    }
-
-                    setLogs(prev => [...prev, msg]);
-
-                    if (msg.includes('⏰ Fetching data')) {
-                      setCountdown(intervalSeconds);
-                    }
-                  };
-                  es.onerror = err => {
-                    console.error('EventSource failed:', err);
-                    es.close();
-                    eventSourceRef.current = null;
-                  };
-                }}
-              >
-                Run Bot
-              </button>
-              <button
-                onClick={() => {
-                  if (eventSourceRef.current) {
-                    eventSourceRef.current.close();
-                    eventSourceRef.current = null;
-                  }
-                  axios
-                    .post('http://localhost:8000/scheduler/stop-bot')
-                    .catch(err => console.error('Failed to stop bot', err));
-                  setCountdown(0);
-                }}
-              >
-                Stop Bot
-              </button>
+            <div>
+              <label>Interval (s)</label>
+              <input
+                type="number"
+                min={10}
+                value={intervalSeconds}
+                onChange={e => setIntervalSeconds(Number(e.target.value))}
+              />
             </div>
           </div>
-          <pre className="logs">{logs.join('\n')}</pre>
-          {countdown > 0 && (
-            <p className="countdown">Next fetch in: {countdown}s</p>
-          )}
-        {pendingTrade && (
-          <div className="prompt">
-            <p>{`Signal ${pendingTrade.side} at ${pendingTrade.price}`}</p>
+
+          <div className="control-inline">
+            <div>
+              <label>Buy RSI below</label>
+              <input
+                type="number"
+                value={buyThreshold}
+                onChange={e => setBuyThreshold(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label>Sell RSI above</label>
+              <input
+                type="number"
+                value={sellThreshold}
+                onChange={e => setSellThreshold(Number(e.target.value))}
+              />
+            </div>
+          </div>
+
+          <div className="mode-toggle">
             <button
+              type="button"
+              className={!autoTrade ? 'active' : ''}
               onClick={() => {
-                axios
-                  .post('http://localhost:8000/scheduler/execute-trade', pendingTrade)
-                  .then(() => setLogs(prev => [...prev, 'Manual trade executed']))
-                  .catch(err => {
-                    console.error('Manual trade failed', err);
-                    setLogs(prev => [...prev, 'Manual trade failed']);
-                  });
-                setPendingTrade(null);
+                setAutoTrade(false);
+                api.post('/scheduler/update-config', { auto_trade: false });
               }}
             >
-              {pendingTrade.side}
+              Signal Only
             </button>
-            <button onClick={() => setPendingTrade(null)}>Cancel</button>
-          </div>
-        )}
-        </div>
-        <div className="analysis-grid">
-          <div className="card gradient-card">
-            <div className="card-heading">
-              <div>
-                <p className="eyebrow">Structure insights</p>
-                <h3>Market Structure Analysis</h3>
-              </div>
-              <div className="chip">{selectedSymbol} · {resolution}</div>
-            </div>
-            <div className="rule-inputs">
-              <div>
-                <label htmlFor="analysis-start">Start</label>
-                <input
-                  id="analysis-start"
-                  type="datetime-local"
-                  value={analysisStart}
-                  onChange={e => setAnalysisStart(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="analysis-end">End</label>
-                <input
-                  id="analysis-end"
-                  type="datetime-local"
-                  value={analysisEnd}
-                  onChange={e => setAnalysisEnd(e.target.value)}
-                />
-              </div>
-            </div>
             <button
+              type="button"
+              className={autoTrade ? 'active' : ''}
               onClick={() => {
-                if (!analysisStart || !analysisEnd) {
-                  alert('Please select a start and end time.');
-                  return;
-                }
-                setAnalysisStatus('Loading market structure...');
-                axios
-                  .post('http://localhost:8000/analysis/market-analysis', {
-                    symbol: selectedSymbol,
-                    resolution,
-                    start: unixFromLocal(analysisStart),
-                    end: unixFromLocal(analysisEnd)
-                  })
-                  .then(res => {
-                    setAnalysisResult(res.data);
-                    setAnalysisStatus('');
-                  })
-                  .catch(err => {
-                    console.error('Market analysis failed', err);
-                    setAnalysisStatus('Unable to fetch analysis.');
-                  });
+                setAutoTrade(true);
+                api.post('/scheduler/update-config', { auto_trade: true });
               }}
             >
-              Run Analysis
+              Auto Trade
             </button>
-            {analysisStatus && <p className="muted">{analysisStatus}</p>}
-            {analysisResult && (
-              <div className="analysis-results">
-                <div className="stat-grid">
-                  <div className="stat-card">
-                    <p className="eyebrow">Divergences</p>
-                    <p className="stat-value">{analysisResult.divergences.length}</p>
-                  </div>
-                  <div className="stat-card">
-                    <p className="eyebrow">Liquidity sweeps</p>
-                    <p className="stat-value">{analysisResult.liquidity_sweeps.length}</p>
-                  </div>
-                  <div className="stat-card">
-                    <p className="eyebrow">Fair value gaps</p>
-                    <p className="stat-value">{analysisResult.fair_value_gaps.length}</p>
-                  </div>
-                  <div className="stat-card">
-                    <p className="eyebrow">Supply / demand zones</p>
-                    <p className="stat-value">{analysisResult.supply_demand_zones.length}</p>
-                  </div>
-                </div>
-                <div className="pattern-grid">
-                  {renderPatternList(
-                    'Divergence Signals',
-                    analysisResult.divergences,
-                    item => `${item.divergence_type} between ${item.price1?.toFixed?.(2) ?? item.price1} and ${item.price2?.toFixed?.(2) ?? item.price2}`
-                  )}
-                  {renderPatternList(
-                    'Liquidity Sweeps',
-                    analysisResult.liquidity_sweeps,
-                    item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
-                  )}
-                  {renderPatternList(
-                    'Fair Value Gaps',
-                    analysisResult.fair_value_gaps,
-                    item => `${item.direction} gap ${item.start?.toFixed?.(2) ?? item.start} → ${item.end?.toFixed?.(2) ?? item.end}`
-                  )}
-                  {renderPatternList(
-                    'Supply / Demand Zones',
-                    analysisResult.supply_demand_zones,
-                    item => `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${item.upper?.toFixed?.(2) ?? item.upper}`
-                  )}
-                </div>
-              </div>
-            )}
           </div>
-          <div className="card gradient-card cool">
-            <div className="card-heading">
-              <div>
-                <p className="eyebrow">Performance simulation</p>
-                <h3>RSI Strategy Backtest</h3>
-              </div>
-              <div className="chip subtle">{analysisStart && analysisEnd ? 'Custom range' : 'Pick a range'}</div>
-            </div>
-            <p className="muted">Uses the same thresholds above to simulate historical performance with TradingView data.</p>
-            <div className="rule-inputs">
-              <div>
-                <label htmlFor="backtest-start">Start</label>
-                <input
-                  id="backtest-start"
-                  type="datetime-local"
-                  value={analysisStart}
-                  onChange={e => setAnalysisStart(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="backtest-end">End</label>
-                <input
-                  id="backtest-end"
-                  type="datetime-local"
-                  value={analysisEnd}
-                  onChange={e => setAnalysisEnd(e.target.value)}
-                />
-              </div>
-            </div>
+
+          <div className="button-row">
+            <button className="primary" onClick={startStream}>
+              Start Session
+            </button>
+            <button className="ghost" onClick={stopStream}>
+              Stop Session
+            </button>
+          </div>
+
+          <div className="button-row spaced">
             <button
+              className="ghost"
               onClick={() => {
-                if (!analysisStart || !analysisEnd) {
-                  alert('Please select a start and end time.');
-                  return;
-                }
-                setBacktestStatus('Running backtest...');
-                axios
-                  .post('http://localhost:8000/analysis/backtest', {
-                    symbol: selectedSymbol,
-                    resolution,
-                    start: unixFromLocal(analysisStart),
-                    end: unixFromLocal(analysisEnd),
+                api
+                  .put(
+                    '/auth/rules',
+                    { buy_threshold: buyThreshold, sell_threshold: sellThreshold },
+                    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+                  )
+                  .catch(err => console.error('Failed to update rules', err));
+                api
+                  .post('/scheduler/update-config', {
                     buy_threshold: buyThreshold,
-                    sell_threshold: sellThreshold
+                    sell_threshold: sellThreshold,
+                    quantity,
+                    interval_seconds: intervalSeconds,
                   })
-                  .then(res => {
-                    setBacktestResult(res.data);
-                    setBacktestStatus('');
-                  })
-                  .catch(err => {
-                    console.error('Backtest failed', err);
-                    setBacktestStatus('Unable to run backtest.');
-                  });
+                  .catch(err => console.error('Failed to sync bot rules', err));
               }}
             >
-              Run Backtest
+              Save Config
             </button>
-            {backtestStatus && <p className="muted">{backtestStatus}</p>}
-            {backtestResult && (
-              <div className="backtest-results">
-                <div className="result-row">
-                  <div className="stat-card">
-                    <p className="eyebrow">Total PnL</p>
-                    <p className={`stat-value ${backtestResult.total_pnl >= 0 ? 'positive' : 'negative'}`}>
-                      {backtestResult.total_pnl.toFixed(2)}
-                    </p>
-                    <p className="caption">Across {backtestResult.trades.length} trades</p>
+            <div className="countdown">Next run in {countdown || 0}s</div>
+          </div>
+
+          <div className="divider" />
+          <div className="process">
+            <div>
+              <p className="eyebrow">Pipeline</p>
+              <h4>Data → Analysis → Execution</h4>
+            </div>
+            <ul className="process-list">
+              <li>
+                <span className="pill subtle">Data</span>
+                TradingView / Topstep feed
+              </li>
+              <li>
+                <span className="pill subtle">RSI + Structure</span>
+                Divergences, sweeps, FVGs
+              </li>
+              <li>
+                <span className="pill subtle">Execution</span>
+                {autoTrade ? 'Automated entries' : 'Manual approvals'}
+              </li>
+            </ul>
+          </div>
+        </aside>
+
+        <main className="main">
+          <div className="status-grid">
+            <div className="card compact">
+              <p className="tiny muted">Mode</p>
+              <h3>{sessionSummary.mode}</h3>
+              <p className="muted tiny">{sessionSummary.latestLog}</p>
+            </div>
+            <div className="card compact">
+              <p className="tiny muted">Session State</p>
+              <h3 className={`status-dot ${sessionState.toLowerCase()}`}>{sessionState}</h3>
+              <p className="muted tiny">Countdown: {countdown || 0}s</p>
+            </div>
+            <div className="card compact">
+              <p className="tiny muted">RSI thresholds</p>
+              <h3>
+                {buyThreshold} / {sellThreshold}
+              </h3>
+              <p className="muted tiny">Qty {quantity}</p>
+            </div>
+          </div>
+
+          <div className="grid">
+            <section className="card activity">
+              <div className="panel-header">
+                <div>
+                  <p className="eyebrow">Live telemetry</p>
+                  <h2>Activity Stream & Trade Prompts</h2>
+                </div>
+                <span className="pill subtle">{logs.length} events</span>
+              </div>
+
+              {pendingTrade && (
+                <div className="prompt-banner">
+                  <div>
+                    <p className="tiny muted">Manual approval required</p>
+                    <h3>
+                      {pendingTrade.side} {pendingTrade.quantity} {pendingTrade.symbol} @{' '}
+                      {pendingTrade.price}
+                    </h3>
+                    <p className="muted tiny">Mode: {sessionSummary.mode}</p>
                   </div>
-                  <div className="stat-card">
-                    <p className="eyebrow">Win rate</p>
-                    <p className="stat-value">
-                      {backtestResult.wins + backtestResult.losses === 0
-                        ? '—'
-                        : `${Math.round((backtestResult.wins / (backtestResult.wins + backtestResult.losses)) * 100)}%`}
-                    </p>
-                    <p className="caption">{backtestResult.wins} wins · {backtestResult.losses} losses</p>
+                  <div className="prompt-actions">
+                    <button className="primary" onClick={approveTrade}>
+                      Approve trade
+                    </button>
+                    <button className="ghost" onClick={() => setPendingTrade(null)}>
+                      Reject
+                    </button>
                   </div>
-                  <div className="stat-card">
-                    <p className="eyebrow">Signals fired</p>
-                    <div className="chip-row">
-                      <span className="chip subtle">Buys {backtestResult.signals?.buy ?? 0}</span>
-                      <span className="chip subtle">Sells {backtestResult.signals?.sell ?? 0}</span>
-                      <span className="chip subtle">Holds {backtestResult.signals?.hold ?? 0}</span>
+                </div>
+              )}
+
+              <div className="log-view" ref={logContainerRef}>
+                {logs.length === 0 ? (
+                  <p className="muted tiny">Waiting for events…</p>
+                ) : (
+                  logs.map((log, idx) => (
+                    <div key={`log-${idx}`} className="log-line">
+                      <span className="log-dot" />
+                      <span>{log}</span>
                     </div>
-                  </div>
-                  <div className="stat-card">
-                    <p className="eyebrow">Pattern matches</p>
-                    <div className="chip-row">
-                      <span className="chip subtle">Divergences {backtestResult.patterns?.divergences ?? 0}</span>
-                      <span className="chip subtle">Sweeps {backtestResult.patterns?.liquidity_sweeps ?? 0}</span>
-                      <span className="chip subtle">FVGs {backtestResult.patterns?.fair_value_gaps ?? 0}</span>
-                      <span className="chip subtle">S/D {backtestResult.patterns?.supply_demand_zones ?? 0}</span>
-                    </div>
-                  </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="card analysis">
+              <div className="panel-header">
+                <div>
+                  <p className="eyebrow">Structure insights</p>
+                  <h2>Market Structure Analysis</h2>
+                </div>
+                <span className="pill subtle">{selectedSymbol}</span>
+              </div>
+
+              <div className="control-inline">
+                <div>
+                  <label htmlFor="analysis-start">Start</label>
+                  <input
+                    id="analysis-start"
+                    type="datetime-local"
+                    value={analysisStart}
+                    onChange={e => setAnalysisStart(e.target.value)}
+                  />
                 </div>
                 <div>
-                  <h4>Trades</h4>
-                  {backtestResult.trades.length === 0 ? (
-                    <p className="muted">No trades executed in this window.</p>
-                  ) : (
-                    <table className="trade-table">
-                      <thead>
-                        <tr>
-                          <th>Side</th>
-                          <th>Entry</th>
-                          <th>Exit</th>
-                          <th>Entry Price</th>
-                          <th>Exit Price</th>
-                          <th>PnL</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {backtestResult.trades.map((trade, idx) => (
-                          <tr key={`trade-${idx}`}>
-                            <td>{trade.side}</td>
-                            <td>{new Date(trade.entry_time).toLocaleString()}</td>
-                            <td>{new Date(trade.exit_time).toLocaleString()}</td>
-                            <td>{trade.entry_price.toFixed(2)}</td>
-                            <td>{trade.exit_price.toFixed(2)}</td>
-                            <td className={trade.pnl >= 0 ? 'positive' : 'negative'}>
-                              {trade.pnl.toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                  <label htmlFor="analysis-end">End</label>
+                  <input
+                    id="analysis-end"
+                    type="datetime-local"
+                    value={analysisEnd}
+                    onChange={e => setAnalysisEnd(e.target.value)}
+                  />
                 </div>
               </div>
-            )}
+              <div className="button-row spaced">
+                <button
+                  className="primary"
+                  onClick={() => {
+                    if (!analysisStart || !analysisEnd) {
+                      setAnalysisError('Please select a start and end time.');
+                      return;
+                    }
+                    setAnalysisError('');
+                    setAnalysisStatus('Loading market structure...');
+                    api
+                      .post('/analysis/market-analysis', {
+                        symbol: selectedSymbol,
+                        resolution,
+                        start: unixFromLocal(analysisStart),
+                        end: unixFromLocal(analysisEnd),
+                      })
+                      .then(res => {
+                        setAnalysisResult(res.data);
+                        setAnalysisStatus('');
+                      })
+                      .catch(err => {
+                        console.error('Market analysis failed', err);
+                        setAnalysisStatus('');
+                        setAnalysisError('Unable to fetch analysis.');
+                      });
+                  }}
+                >
+                  Run Analysis
+                </button>
+                {analysisStatus && <p className="muted tiny">{analysisStatus}</p>}
+              </div>
+              {analysisError && <p className="inline-alert danger">{analysisError}</p>}
+
+              {analysisResult && (
+                <div className="analysis-results">
+                  <div className="stat-row">
+                    <div className="stat">
+                      <p className="tiny muted">Divergences</p>
+                      <strong>{analysisResult.divergences.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Liquidity sweeps</p>
+                      <strong>{analysisResult.liquidity_sweeps.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Fair value gaps</p>
+                      <strong>{analysisResult.fair_value_gaps.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Supply/Demand zones</p>
+                      <strong>{analysisResult.supply_demand_zones.length}</strong>
+                    </div>
+                  </div>
+                  <div className="pattern-grid">
+                    {renderPatternList(
+                      'Divergence Signals',
+                      analysisResult.divergences,
+                      item =>
+                        `${item.divergence_type} between ${
+                          item.price1?.toFixed?.(2) ?? item.price1
+                        } and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                    )}
+                    {renderPatternList(
+                      'Liquidity Sweeps',
+                      analysisResult.liquidity_sweeps,
+                      item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                    )}
+                    {renderPatternList(
+                      'Fair Value Gaps',
+                      analysisResult.fair_value_gaps,
+                      item =>
+                        `${item.direction} gap ${
+                          item.start?.toFixed?.(2) ?? item.start
+                        } → ${item.end?.toFixed?.(2) ?? item.end}`
+                    )}
+                    {renderPatternList(
+                      'Supply / Demand Zones',
+                      analysisResult.supply_demand_zones,
+                      item =>
+                        `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${
+                          item.upper?.toFixed?.(2) ?? item.upper
+                        }`
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="card backtest">
+              <div className="panel-header">
+                <div>
+                  <p className="eyebrow">Performance simulation</p>
+                  <h2>RSI Strategy Backtest</h2>
+                </div>
+                <span className="pill subtle">Aligned w/ live config</span>
+              </div>
+
+              <div className="control-inline">
+                <div>
+                  <label htmlFor="backtest-start">Start</label>
+                  <input
+                    id="backtest-start"
+                    type="datetime-local"
+                    value={analysisStart}
+                    onChange={e => setAnalysisStart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="backtest-end">End</label>
+                  <input
+                    id="backtest-end"
+                    type="datetime-local"
+                    value={analysisEnd}
+                    onChange={e => setAnalysisEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="button-row spaced">
+                <button
+                  className="primary"
+                  onClick={() => {
+                    if (!analysisStart || !analysisEnd) {
+                      setBacktestError('Please select a start and end time.');
+                      return;
+                    }
+                    setBacktestError('');
+                    setBacktestStatus('Running backtest...');
+                    api
+                      .post('/analysis/backtest', {
+                        symbol: selectedSymbol,
+                        resolution,
+                        start: unixFromLocal(analysisStart),
+                        end: unixFromLocal(analysisEnd),
+                        buy_threshold: buyThreshold,
+                        sell_threshold: sellThreshold,
+                      })
+                      .then(res => {
+                        setBacktestResult(res.data);
+                        setBacktestStatus('');
+                      })
+                      .catch(err => {
+                        console.error('Backtest failed', err);
+                        setBacktestStatus('');
+                        setBacktestError('Unable to run backtest.');
+                      });
+                  }}
+                >
+                  Run Backtest
+                </button>
+                {backtestStatus && <p className="muted tiny">{backtestStatus}</p>}
+              </div>
+              {backtestError && <p className="inline-alert danger">{backtestError}</p>}
+
+              {backtestResult && (
+                <div className="backtest-results">
+                  <div className="stat-row">
+                    <div className="stat">
+                      <p className="tiny muted">Total PnL</p>
+                      <strong className={backtestResult.total_pnl >= 0 ? 'positive' : 'negative'}>
+                        {backtestResult.total_pnl.toFixed(2)}
+                      </strong>
+                      <p className="tiny muted">Across {backtestResult.trades.length} trades</p>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Win rate</p>
+                      <strong>
+                        {backtestResult.wins + backtestResult.losses === 0
+                          ? '—'
+                          : `${Math.round(
+                              (backtestResult.wins / (backtestResult.wins + backtestResult.losses)) * 100
+                            )}%`}
+                      </strong>
+                      <p className="tiny muted">
+                        {backtestResult.wins} wins · {backtestResult.losses} losses
+                      </p>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Signals</p>
+                      <div className="chip-row">
+                        <span className="pill subtle">Buy {backtestResult.signals?.buy ?? 0}</span>
+                        <span className="pill subtle">Sell {backtestResult.signals?.sell ?? 0}</span>
+                        <span className="pill subtle">Hold {backtestResult.signals?.hold ?? 0}</span>
+                      </div>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Patterns</p>
+                      <div className="chip-row">
+                        <span className="pill subtle">Div {backtestResult.patterns?.divergences ?? 0}</span>
+                        <span className="pill subtle">Sweeps {backtestResult.patterns?.liquidity_sweeps ?? 0}</span>
+                        <span className="pill subtle">FVG {backtestResult.patterns?.fair_value_gaps ?? 0}</span>
+                        <span className="pill subtle">S/D {backtestResult.patterns?.supply_demand_zones ?? 0}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {backtestEquity.length > 0 && (
+                    <div className="chart-block">
+                      <div className="chart-header">
+                        <p className="tiny muted">Equity Curve</p>
+                        <span className="pill subtle">{backtestEquity.length} points</span>
+                      </div>
+                      <EquitySparkline data={backtestEquity} />
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="table-header">
+                      <h4>Trades</h4>
+                      <span className="pill subtle">{backtestResult.trades.length}</span>
+                    </div>
+                    {backtestResult.trades.length === 0 ? (
+                      <p className="muted tiny">No trades executed in this window.</p>
+                    ) : (
+                      <table className="trade-table">
+                        <thead>
+                          <tr>
+                            <th>Side</th>
+                            <th>Entry</th>
+                            <th>Exit</th>
+                            <th>Entry Price</th>
+                            <th>Exit Price</th>
+                            <th>PnL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {backtestResult.trades.map((trade, idx) => (
+                            <tr key={`trade-${idx}`}>
+                              <td>{trade.side}</td>
+                              <td>{new Date(trade.entry_time).toLocaleString()}</td>
+                              <td>{new Date(trade.exit_time).toLocaleString()}</td>
+                              <td>{trade.entry_price.toFixed(2)}</td>
+                              <td>{trade.exit_price.toFixed(2)}</td>
+                              <td className={trade.pnl >= 0 ? 'positive' : 'negative'}>
+                                {trade.pnl.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
           </div>
-        </div>
+        </main>
       </div>
-      </div>
+    </div>
   );
 }
 
