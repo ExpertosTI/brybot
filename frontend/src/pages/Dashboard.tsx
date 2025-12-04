@@ -139,10 +139,19 @@ function Dashboard() {
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [backtestStatus, setBacktestStatus] = useState<string>('');
   const [backtestError, setBacktestError] = useState<string>('');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const stored = localStorage.getItem('theme');
+    return stored === 'light' ? 'light' : 'dark';
+  });
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     return () => {
@@ -277,6 +286,12 @@ function Dashboard() {
     setCountdown(0);
   };
 
+  const logout = () => {
+    stopStream();
+    localStorage.removeItem('token');
+    navigate('/', { replace: true, state: { loggedOut: true } });
+  };
+
   const approveTrade = () => {
     if (!pendingTrade) return;
     api
@@ -336,6 +351,18 @@ function Dashboard() {
             <span className={`status-dot ${connectionStatus}`}>
               {connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
             </span>
+          </div>
+          <div className="topbar-actions">
+            <button
+              type="button"
+              className="ghost compact"
+              onClick={() => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))}
+            >
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </button>
+            <button type="button" className="ghost compact" onClick={logout}>
+              Log out
+            </button>
           </div>
         </div>
       </header>
@@ -649,6 +676,14 @@ function Dashboard() {
                       <strong>{analysisResult.supply_demand_zones.length}</strong>
                     </div>
                     <div className="stat">
+                      <p className="tiny muted">Liquidity sweeps</p>
+                      <strong>{analysisResult.liquidity_sweeps.length}</strong>
+                    </div>
+                    <div className="stat">
+                      <p className="tiny muted">Fair value gaps</p>
+                      <strong>{analysisResult.fair_value_gaps.length}</strong>
+                    </div>
+                    <div className="stat">
                       <p className="tiny muted">Supply/Demand zones</p>
                       <strong>{analysisResult.supply_demand_zones.length}</strong>
                     </div>
@@ -656,6 +691,41 @@ function Dashboard() {
                       <p className="tiny muted">Supply/Demand zones</p>
                       <strong>{analysisResult.supply_demand_zones.length}</strong>
                     </div>
+                    <div className="stat">
+                      <p className="tiny muted">Supply/Demand zones</p>
+                      <strong>{analysisResult.supply_demand_zones.length}</strong>
+                    </div>
+                  </div>
+                  <div className="pattern-grid">
+                    {renderPatternList(
+                      'Divergence Signals',
+                      analysisResult.divergences,
+                      item =>
+                        `${item.divergence_type} between ${
+                          item.price1?.toFixed?.(2) ?? item.price1
+                        } and ${item.price2?.toFixed?.(2) ?? item.price2}`
+                    )}
+                    {renderPatternList(
+                      'Liquidity Sweeps',
+                      analysisResult.liquidity_sweeps,
+                      item => `${item.side} sweep at ${item.sweep_price?.toFixed?.(2) ?? item.sweep_price}`
+                    )}
+                    {renderPatternList(
+                      'Fair Value Gaps',
+                      analysisResult.fair_value_gaps,
+                      item =>
+                        `${item.direction} gap ${
+                          item.start?.toFixed?.(2) ?? item.start
+                        } → ${item.end?.toFixed?.(2) ?? item.end}`
+                    )}
+                    {renderPatternList(
+                      'Supply / Demand Zones',
+                      analysisResult.supply_demand_zones,
+                      item =>
+                        `${item.type} ${item.lower?.toFixed?.(2) ?? item.lower} - ${
+                          item.upper?.toFixed?.(2) ?? item.upper
+                        }`
+                    )}
                   </div>
                   <div className="pattern-grid">
                     {renderPatternList(

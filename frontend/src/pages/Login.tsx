@@ -10,6 +10,7 @@ function Login() {
   const location = useLocation();
 
   const expired = (location.state as { expired?: boolean } | null)?.expired;
+  const loggedOut = (location.state as { loggedOut?: boolean } | null)?.loggedOut;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +54,11 @@ function Login() {
           </div>
           <span className="pill status success">Secure</span>
         </div>
+        {loggedOut && (
+          <div className="inline-alert" role="status" aria-live="polite">
+            You have been logged out.
+          </div>
+        )}
         {expired && (
           <div className="inline-alert warning" role="alert" aria-live="polite">
             Your session expired. Please log in again.
