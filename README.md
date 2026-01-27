@@ -29,10 +29,29 @@ DATABASE_URL=postgresql://postgres:password@localhost:5432/topstepdb
 TOPSTEP_USER=your@email.com
 TOPSTEP_API_KEY=your-api-key
 SECRET_KEY=your-secret
+CREDENTIALS_ENCRYPTION_KEY=your-32-byte-base64-fernet-key
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ACCOUNT_ID=your-topstep-account-id
 TOPSTEP_ACCOUNT_ID=your-topstep-account-id
 TRADINGVIEW_API_KEY=your-tradingview-api-key
 TRADINGVIEW_BASE_URL=https://api.tradingview.com  # optional
+```
+
+> `CREDENTIALS_ENCRYPTION_KEY` is optional. If omitted, the backend derives an encryption key
+> from `SECRET_KEY`. Use an explicit Fernet key for production.
+
+## 🧭 New user onboarding & integrations
+
+1. Start the backend and frontend (see setup above).
+2. Visit `/register` to create a new account.
+3. After registration you will be redirected to `/integrations` to connect platforms like
+   TopStepX, Tradovate, NinjaTrader, TradingView, or Interactive Brokers.
+4. Return to `/dashboard` to run the trading bot.
+
+## 🗃️ Running migrations
+
+```bash
+alembic upgrade head
 ```
 
 ## 📈 TradingView API

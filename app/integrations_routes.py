@@ -1,0 +1,117 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from . import database, models
+from .auth_routes import get_current_user_model
+from .crypto import encrypt_credentials
+
+router = APIRouter()
+
+
+def _get_integration_or_404(db: Session, integration_id: int, user_id: int) -> models.PlatformIntegration:
+    integration = (
+        db.query(models.PlatformIntegration)
+        .filter(models.PlatformIntegration.id == integration_id)
+        .filter(models.PlatformIntegration.user_id == user_id)
+        .first()
+    )
+    if not integration:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found")
+    return integration
+
+
+def _to_public(integration: models.PlatformIntegration) -> models.IntegrationOut:
+    return models.IntegrationOut(
+        id=integration.id,
+        display_name=integration.display_name,
+        provider=models.IntegrationProvider(integration.provider),
+        status=integration.status,
+        metadata=integration.metadata,
+        created_at=integration.created_at,
+        updated_at=integration.updated_at,
+        has_credentials=bool(integration.credentials_encrypted),
+    )
+
+
+@router.get("/integrations", response_model=list[models.IntegrationOut])
+def list_integrations(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    integrations = (
+        db.query(models.PlatformIntegration)
+        .filter(models.PlatformIntegration.user_id == current_user.id)
+        .order_by(models.PlatformIntegration.created_at.desc())
+        .all()
+    )
+    return [_to_public(integration) for integration in integrations]
+
+
+@router.post(
+    "/integrations",
+    response_model=models.IntegrationOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_integration(
+    payload: models.IntegrationCreate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    encrypted = None
+    if payload.credentials:
+        encrypted = encrypt_credentials(payload.credentials)
+    integration = models.PlatformIntegration(
+        user_id=current_user.id,
+        display_name=payload.display_name,
+        provider=payload.provider.value,
+        status=payload.status or "active",
+        metadata=payload.metadata,
+        credentials_encrypted=encrypted,
+    )
+    db.add(integration)
+    db.commit()
+    db.refresh(integration)
+    return _to_public(integration)
+
+
+@router.get("/integrations/{integration_id}", response_model=models.IntegrationOut)
+def get_integration(
+    integration_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    integration = _get_integration_or_404(db, integration_id, current_user.id)
+    return _to_public(integration)
+
+
+@router.put("/integrations/{integration_id}", response_model=models.IntegrationOut)
+def update_integration(
+    integration_id: int,
+    payload: models.IntegrationUpdate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    integration = _get_integration_or_404(db, integration_id, current_user.id)
+    if payload.display_name is not None:
+        integration.display_name = payload.display_name
+    if payload.status is not None:
+        integration.status = payload.status
+    if payload.metadata is not None:
+        integration.metadata = payload.metadata
+    if payload.credentials is not None:
+        integration.credentials_encrypted = encrypt_credentials(payload.credentials)
+    db.commit()
+    db.refresh(integration)
+    return _to_public(integration)
+
+
+@router.delete("/integrations/{integration_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_integration(
+    integration_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    integration = _get_integration_or_404(db, integration_id, current_user.id)
+    db.delete(integration)
+    db.commit()
+    return None

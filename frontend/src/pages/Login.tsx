@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { api, API_BASE_URL } from '../api';
 
@@ -97,6 +97,9 @@ function Login() {
           </button>
         </form>
         <p className="tiny muted">API: {API_BASE_URL}</p>
+        <p className="tiny muted">
+          New here? <Link to="/register">Create an account</Link>
+        </p>
       </div>
     </div>
   );
