@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api, API_BASE_URL } from '../api';
 
 const DEFAULT_CONTRACTS = ['ES', 'NQ', 'YM', 'CL', 'GC'];
@@ -353,6 +353,9 @@ function Dashboard() {
             </span>
           </div>
           <div className="topbar-actions">
+            <Link to="/integrations" className="ghost compact">
+              Integrations
+            </Link>
             <button
               type="button"
               className="ghost compact"
