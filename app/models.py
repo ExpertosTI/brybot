@@ -35,7 +35,7 @@ class PlatformIntegration(Base):
     display_name = Column(String, nullable=False)
     provider = Column(String, nullable=False, index=True)
     status = Column(String, nullable=False, default="active")
-    metadata = Column(JSON, nullable=True)
+    integration_metadata = Column("metadata", JSON, nullable=True)
     credentials_encrypted = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -58,7 +58,7 @@ class UserPublic(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class TradingRuleUpdate(BaseModel):
