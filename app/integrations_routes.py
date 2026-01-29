@@ -26,7 +26,7 @@ def _to_public(integration: models.PlatformIntegration) -> models.IntegrationOut
         display_name=integration.display_name,
         provider=models.IntegrationProvider(integration.provider),
         status=integration.status,
-        metadata=integration.metadata,
+        metadata=integration.integration_metadata,
         created_at=integration.created_at,
         updated_at=integration.updated_at,
         has_credentials=bool(integration.credentials_encrypted),
