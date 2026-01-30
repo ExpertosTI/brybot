@@ -1,8 +1,8 @@
 ---
 name: 🐞 Bug / Feedback Report
 about: Report an issue or feedback found while testing the Vercel demo
-title: "[Investor Feedback] <short description>"
-labels: ["investor-feedback", "bug"]
+title: "[Feedback] <short description>"
+labels: ["feedback", "bug"]
 assignees: []
 ---
 
