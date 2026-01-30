@@ -2,7 +2,7 @@ import logging
 import os
 from fastapi import APIRouter
 from app.auth import get_session_token
-from projectx import get_all_contracts
+from app.projectx import get_all_contracts
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
