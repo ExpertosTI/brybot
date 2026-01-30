@@ -16,6 +16,17 @@ type SessionState = 'Idle' | 'Live' | 'Error';
 
 type User = { username: string };
 
+type Integration = {
+  id: number;
+  display_name: string;
+  provider: string;
+  status: string;
+};
+
+type ActiveIntegrationResponse = {
+  active: Integration | null;
+};
+
 type TradePrompt = {
   side: string;
   price: number;
@@ -139,6 +150,8 @@ function Dashboard() {
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
   const [backtestStatus, setBacktestStatus] = useState<string>('');
   const [backtestError, setBacktestError] = useState<string>('');
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [activeIntegration, setActiveIntegration] = useState<Integration | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const stored = localStorage.getItem('theme');
     return stored === 'light' ? 'light' : 'dark';
@@ -188,7 +201,7 @@ function Dashboard() {
         if (res.data.error) {
           setContractNotice('Using fallback contracts: ' + res.data.error);
         } else if (res.data.source === 'fallback' || symbols.length === 0) {
-          setContractNotice('Using fallback contracts until Topstep credentials are configured.');
+          setContractNotice('Using fallback contracts until a market data integration is configured.');
         } else {
           setContractNotice('');
         }
@@ -211,6 +224,16 @@ function Dashboard() {
         setBuyThreshold(30);
         setSellThreshold(70);
       });
+
+    api
+      .get('/integrations')
+      .then(res => setIntegrations(res.data ?? []))
+      .catch(err => console.error('Failed to load integrations', err));
+
+    api
+      .get<ActiveIntegrationResponse>('/integrations/active')
+      .then(res => setActiveIntegration(res.data.active))
+      .catch(err => console.error('Failed to load active integration', err));
   }, [navigate]);
 
   useEffect(() => {
@@ -232,9 +255,18 @@ function Dashboard() {
       eventSourceRef.current = null;
     }
 
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLogs(prev => [...prev, 'Missing access token. Please sign in again.']);
+      setSessionState('Error');
+      return;
+    }
+
     const url = `${API_BASE_URL}/scheduler/run-bot?symbol=${encodeURIComponent(
       selectedSymbol
-    )}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}&quantity=${quantity}&interval_seconds=${intervalSeconds}`;
+    )}&buy_threshold=${buyThreshold ?? 30}&sell_threshold=${sellThreshold ?? 70}&auto_trade=${autoTrade}&quantity=${quantity}&interval_seconds=${intervalSeconds}&access_token=${encodeURIComponent(
+      token
+    )}`;
 
     const es = new EventSource(url);
     eventSourceRef.current = es;
@@ -322,6 +354,13 @@ function Dashboard() {
     symbol: `${selectedSymbol} · ${RESOLUTION_LABELS[resolution] || resolution}`,
   };
 
+  const activateIntegration = (integrationId: number) => {
+    api
+      .put(`/integrations/${integrationId}/activate`)
+      .then(res => setActiveIntegration(res.data.active))
+      .catch(err => console.error('Failed to activate integration', err));
+  };
+
   return (
     <div className="dashboard-shell">
       <header className="topbar">
@@ -378,6 +417,36 @@ function Dashboard() {
               <h2>Control Center</h2>
             </div>
             <span className="pill">RSI</span>
+          </div>
+
+          <div className="control-group">
+            <label>Active Integration</label>
+            <div className="input-row">
+              <select
+                value={activeIntegration?.id ?? ''}
+                onChange={e => {
+                  const nextId = Number(e.target.value);
+                  if (nextId) {
+                    activateIntegration(nextId);
+                  }
+                }}
+              >
+                <option value="">Select integration</option>
+                {integrations.map(integration => (
+                  <option key={integration.id} value={integration.id}>
+                    {integration.display_name} · {integration.provider}
+                  </option>
+                ))}
+              </select>
+              {activeIntegration && <span className="pill subtle">Active</span>}
+            </div>
+            {activeIntegration ? (
+              <p className="muted tiny">
+                Using {activeIntegration.display_name} for broker execution.
+              </p>
+            ) : (
+              <p className="muted tiny">Select a broker integration to enable live trading.</p>
+            )}
           </div>
 
           <div className="control-group">
@@ -516,7 +585,7 @@ function Dashboard() {
             <ul className="process-list">
               <li>
                 <span className="pill subtle">Data</span>
-                TradingView / Topstep feed
+                Signal + broker feeds
               </li>
               <li>
                 <span className="pill subtle">RSI + Structure</span>

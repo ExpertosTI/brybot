@@ -13,9 +13,6 @@ def get_session_token():
     user_name = os.getenv("TOPSTEP_USER")
     api_key = os.getenv("TOPSTEP_API_KEY")
 
-    print("Username:", user_name)
-    print("API Key:", api_key)
-
     payload = {
         "userName": user_name,
         "apiKey": api_key
