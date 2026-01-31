@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, API_BASE_URL } from '../api';
+import { Contract } from '../api/contracts';
+import { useActiveIntegrationContracts } from '../hooks/useActiveIntegrationContracts';
 
 const DEFAULT_CONTRACTS = ['ES', 'NQ', 'YM', 'CL', 'GC'];
 const RESOLUTION_LABELS: Record<string, string> = {
@@ -21,10 +23,6 @@ type Integration = {
   display_name: string;
   provider: string;
   status: string;
-};
-
-type ActiveIntegrationResponse = {
-  active: Integration | null;
 };
 
 type TradePrompt = {
@@ -120,8 +118,6 @@ const EquitySparkline = ({ data }: { data: Array<{ time: string; equity: number 
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
-  const [contracts, setContracts] = useState<string[]>(DEFAULT_CONTRACTS);
-  const [contractNotice, setContractNotice] = useState<string>('');
   const [selectedSymbol, setSelectedSymbol] = useState<string>(DEFAULT_CONTRACTS[0]);
   const [resolution, setResolution] = useState<string>('1');
   const [buyThreshold, setBuyThreshold] = useState<number>(30);
@@ -151,7 +147,6 @@ function Dashboard() {
   const [backtestStatus, setBacktestStatus] = useState<string>('');
   const [backtestError, setBacktestError] = useState<string>('');
   const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [activeIntegration, setActiveIntegration] = useState<Integration | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const stored = localStorage.getItem('theme');
     return stored === 'light' ? 'light' : 'dark';
@@ -160,6 +155,14 @@ function Dashboard() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const {
+    activeIntegration,
+    contracts,
+    contractsError,
+    contractsSource,
+    loadingContracts,
+    setActiveIntegrationAndLoadContracts,
+  } = useActiveIntegrationContracts();
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -191,28 +194,6 @@ function Dashboard() {
       });
 
     api
-      .get('/contracts')
-      .then(res => {
-        const symbols: string[] = res.data.contracts || [];
-        const firstSymbol = symbols[0] || DEFAULT_CONTRACTS[0];
-
-        setContracts(symbols.length ? symbols : DEFAULT_CONTRACTS);
-        setSelectedSymbol(firstSymbol);
-        if (res.data.error) {
-          setContractNotice('Using fallback contracts: ' + res.data.error);
-        } else if (res.data.source === 'fallback' || symbols.length === 0) {
-          setContractNotice('Using fallback contracts until a market data integration is configured.');
-        } else {
-          setContractNotice('');
-        }
-      })
-      .catch(() => {
-        setContracts(DEFAULT_CONTRACTS);
-        setSelectedSymbol(DEFAULT_CONTRACTS[0]);
-        setContractNotice('Could not load contracts; showing fallback list.');
-      });
-
-    api
       .get('/auth/rules')
       .then(res => {
         const buy = res.data.buy_threshold ?? 30;
@@ -229,12 +210,47 @@ function Dashboard() {
       .get('/integrations')
       .then(res => setIntegrations(res.data ?? []))
       .catch(err => console.error('Failed to load integrations', err));
-
-    api
-      .get<ActiveIntegrationResponse>('/integrations/active')
-      .then(res => setActiveIntegration(res.data.active))
-      .catch(err => console.error('Failed to load active integration', err));
   }, [navigate]);
+
+  const contractOptions = useMemo(() => {
+    if (contracts.length > 0) {
+      return contracts;
+    }
+    if (contractsError) {
+      return [];
+    }
+    return DEFAULT_CONTRACTS.map(symbol => ({ symbol, name: symbol } as Contract));
+  }, [contracts, contractsError]);
+
+  const contractNotice = useMemo(() => {
+    if (contractsError) {
+      return contractsError;
+    }
+    if (!loadingContracts && (contractsSource === 'fallback' || contracts.length === 0)) {
+      return 'Using fallback contracts until a market data integration is configured.';
+    }
+    return '';
+  }, [contractsError, contractsSource, contracts.length, loadingContracts]);
+
+  const isFallbackContracts = useMemo(
+    () =>
+      !contractsError &&
+      !loadingContracts &&
+      (contractsSource === 'fallback' || contracts.length === 0),
+    [contractsError, contractsSource, contracts.length, loadingContracts]
+  );
+
+  useEffect(() => {
+    if (contractOptions.length === 0) {
+      return;
+    }
+    const contractSymbols = contractOptions.map(contract =>
+      contract.symbol ?? contract.name ?? String(contract.id ?? '')
+    );
+    if (!contractSymbols.includes(selectedSymbol)) {
+      setSelectedSymbol(contractSymbols[0]);
+    }
+  }, [contractOptions, selectedSymbol]);
 
   useEffect(() => {
     if (countdown <= 0 || sessionState !== 'Live') return;
@@ -354,12 +370,10 @@ function Dashboard() {
     symbol: `${selectedSymbol} · ${RESOLUTION_LABELS[resolution] || resolution}`,
   };
 
-  const activateIntegration = (integrationId: number) => {
-    api
-      .put(`/integrations/${integrationId}/activate`)
-      .then(res => setActiveIntegration(res.data.active))
-      .catch(err => console.error('Failed to activate integration', err));
-  };
+  const marketDataUnsupported =
+    contractsError &&
+    (contractsError.toLowerCase().includes("doesn't provide contracts") ||
+      contractsError.toLowerCase().includes('does not support market data'));
 
   return (
     <div className="dashboard-shell">
@@ -427,7 +441,9 @@ function Dashboard() {
                 onChange={e => {
                   const nextId = Number(e.target.value);
                   if (nextId) {
-                    activateIntegration(nextId);
+                    setActiveIntegrationAndLoadContracts(nextId).catch(err =>
+                      console.error('Failed to activate integration', err)
+                    );
                   }
                 }}
               >
@@ -447,6 +463,11 @@ function Dashboard() {
             ) : (
               <p className="muted tiny">Select a broker integration to enable live trading.</p>
             )}
+            {!activeIntegration && (
+              <div className="inline-alert warning">
+                No active integration. Go to Integrations to activate one.
+              </div>
+            )}
           </div>
 
           <div className="control-group">
@@ -455,16 +476,27 @@ function Dashboard() {
               <select
                 value={selectedSymbol}
                 onChange={e => setSelectedSymbol(e.target.value)}
+                disabled={loadingContracts || contractOptions.length === 0}
               >
-                {contracts.map(symbol => (
-                  <option key={symbol} value={symbol}>
-                    {symbol}
-                  </option>
-                ))}
+                {contractOptions.map(contract => {
+                  const symbol =
+                    contract.symbol ?? contract.name ?? String(contract.id ?? '');
+                  return (
+                    <option key={symbol} value={symbol}>
+                      {symbol}
+                    </option>
+                  );
+                })}
               </select>
-              {contractNotice && <span className="pill warning">Fallback</span>}
+              {isFallbackContracts && <span className="pill warning">Fallback</span>}
             </div>
             {contractNotice && <p className="muted tiny">{contractNotice}</p>}
+            {marketDataUnsupported && (
+              <p className="muted tiny">
+                This integration doesn’t provide contracts/instruments. Switch integrations to
+                load contracts.
+              </p>
+            )}
           </div>
 
           <div className="control-inline">
