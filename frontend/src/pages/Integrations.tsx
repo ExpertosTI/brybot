@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { useActiveIntegrationContracts } from '../hooks/useActiveIntegrationContracts';
 
 type Integration = {
   id: number;
@@ -11,10 +12,6 @@ type Integration = {
   created_at: string;
   updated_at: string;
   has_credentials: boolean;
-};
-
-type ActiveIntegrationResponse = {
-  active: Integration | null;
 };
 
 type ProviderInfo = {
@@ -66,9 +63,11 @@ function Integrations() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStoredCredentials, setHasStoredCredentials] = useState(false);
-  const [activeIntegration, setActiveIntegration] = useState<Integration | null>(null);
+  const [activationNotice, setActivationNotice] = useState<string>('');
   const [providerInfo, setProviderInfo] = useState<ProviderInfo[]>([]);
   const navigate = useNavigate();
+  const { activeIntegration, refreshActiveIntegration, setActiveIntegrationAndLoadContracts } =
+    useActiveIntegrationContracts();
 
   const loadIntegrations = async () => {
     try {
@@ -88,15 +87,6 @@ function Integrations() {
     }
   };
 
-  const loadActiveIntegration = async () => {
-    try {
-      const res = await api.get<ActiveIntegrationResponse>('/integrations/active');
-      setActiveIntegration(res.data.active);
-    } catch (err) {
-      console.error('Failed to load active integration', err);
-    }
-  };
-
   const loadProviders = async () => {
     try {
       const res = await api.get<{ providers: ProviderInfo[] }>('/integrations/providers');
@@ -108,9 +98,9 @@ function Integrations() {
 
   useEffect(() => {
     loadIntegrations();
-    loadActiveIntegration();
     loadProviders();
-  }, []);
+    refreshActiveIntegration();
+  }, [refreshActiveIntegration]);
 
   const startCreate = () => {
     setForm(emptyForm);
@@ -184,7 +174,7 @@ function Integrations() {
         await api.post('/integrations', payload);
       }
       await loadIntegrations();
-      await loadActiveIntegration();
+      await refreshActiveIntegration();
       startCreate();
     } catch (err) {
       console.error('Failed to save integration', err);
@@ -199,7 +189,7 @@ function Integrations() {
     try {
       await api.delete(`/integrations/${integrationId}`);
       await loadIntegrations();
-      await loadActiveIntegration();
+      await refreshActiveIntegration();
       if (editingId === integrationId) {
         startCreate();
       }
@@ -224,8 +214,9 @@ function Integrations() {
 
   const activateIntegration = async (integrationId: number) => {
     try {
-      await api.put(`/integrations/${integrationId}/activate`);
-      await loadActiveIntegration();
+      await setActiveIntegrationAndLoadContracts(integrationId);
+      setActivationNotice('Active integration updated. Contracts refreshed.');
+      window.setTimeout(() => setActivationNotice(''), 2500);
     } catch (err) {
       console.error('Failed to activate integration', err);
       setError('Unable to activate integration.');
@@ -270,6 +261,11 @@ function Integrations() {
           {error && (
             <div className="inline-alert danger" role="alert">
               {error}
+            </div>
+          )}
+          {activationNotice && (
+            <div className="inline-alert" role="status">
+              {activationNotice}
             </div>
           )}
           <form className="integration-form" onSubmit={handleSubmit}>
