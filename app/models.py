@@ -3,7 +3,7 @@ from datetime import datetime
 from .database import Base
 from pydantic import BaseModel
 from typing import Any, Optional
-from enum import Enum
+from .providers.types import IntegrationProvider
 
 class User(Base):
     __tablename__ = "users"
@@ -13,18 +13,15 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    active_integration_id = Column(
+        Integer,
+        ForeignKey("platform_integrations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     # User configurable trading rules
     buy_threshold = Column(Integer, default=30)
     sell_threshold = Column(Integer, default=70)
-
-
-class IntegrationProvider(str, Enum):
-    TOPSTEPX = "TOPSTEPX"
-    TRADOVATE = "TRADOVATE"
-    NINJATRADER = "NINJATRADER"
-    TRADINGVIEW = "TRADINGVIEW"
-    IBKR = "IBKR"
-    OTHER = "OTHER"
 
 
 class PlatformIntegration(Base):

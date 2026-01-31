@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { useActiveIntegrationContracts } from '../hooks/useActiveIntegrationContracts';
 
 type Integration = {
   id: number;
@@ -13,6 +14,11 @@ type Integration = {
   has_credentials: boolean;
 };
 
+type ProviderInfo = {
+  provider: string;
+  capabilities: string[];
+};
+
 type FormState = {
   display_name: string;
   provider: string;
@@ -23,6 +29,8 @@ type FormState = {
   apiKey: string;
   apiSecret: string;
   refreshToken: string;
+  userName: string;
+  webhookSecret: string;
 };
 
 const PROVIDERS = [
@@ -31,7 +39,7 @@ const PROVIDERS = [
   { value: 'NINJATRADER', label: 'NinjaTrader' },
   { value: 'TRADINGVIEW', label: 'TradingView' },
   { value: 'IBKR', label: 'Interactive Brokers' },
-  { value: 'OTHER', label: 'Other' }
+  { value: 'ETX', label: 'ETX' }
 ];
 
 const emptyForm: FormState = {
@@ -43,7 +51,9 @@ const emptyForm: FormState = {
   baseUrl: '',
   apiKey: '',
   apiSecret: '',
-  refreshToken: ''
+  refreshToken: '',
+  userName: '',
+  webhookSecret: ''
 };
 
 function Integrations() {
@@ -53,7 +63,11 @@ function Integrations() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasStoredCredentials, setHasStoredCredentials] = useState(false);
+  const [activationNotice, setActivationNotice] = useState<string>('');
+  const [providerInfo, setProviderInfo] = useState<ProviderInfo[]>([]);
   const navigate = useNavigate();
+  const { activeIntegration, refreshActiveIntegration, setActiveIntegrationAndLoadContracts } =
+    useActiveIntegrationContracts();
 
   const loadIntegrations = async () => {
     try {
@@ -73,9 +87,20 @@ function Integrations() {
     }
   };
 
+  const loadProviders = async () => {
+    try {
+      const res = await api.get<{ providers: ProviderInfo[] }>('/integrations/providers');
+      setProviderInfo(res.data.providers ?? []);
+    } catch (err) {
+      console.error('Failed to load providers', err);
+    }
+  };
+
   useEffect(() => {
     loadIntegrations();
-  }, []);
+    loadProviders();
+    refreshActiveIntegration();
+  }, [refreshActiveIntegration]);
 
   const startCreate = () => {
     setForm(emptyForm);
@@ -96,7 +121,9 @@ function Integrations() {
       baseUrl: integration.metadata?.baseUrl ?? '',
       apiKey: '',
       apiSecret: '',
-      refreshToken: ''
+      refreshToken: '',
+      userName: '',
+      webhookSecret: ''
     });
   };
 
@@ -110,9 +137,16 @@ function Integrations() {
 
   const buildCredentials = () => {
     const credentials: Record<string, string> = {};
-    if (form.apiKey) credentials.apiKey = form.apiKey;
-    if (form.apiSecret) credentials.apiSecret = form.apiSecret;
-    if (form.refreshToken) credentials.refreshToken = form.refreshToken;
+    if (form.provider === 'TOPSTEPX') {
+      if (form.userName) credentials.userName = form.userName;
+      if (form.apiKey) credentials.apiKey = form.apiKey;
+    } else if (form.provider === 'TRADINGVIEW') {
+      if (form.webhookSecret) credentials.webhookSecret = form.webhookSecret;
+    } else {
+      if (form.apiKey) credentials.apiKey = form.apiKey;
+      if (form.apiSecret) credentials.apiSecret = form.apiSecret;
+      if (form.refreshToken) credentials.refreshToken = form.refreshToken;
+    }
     return Object.keys(credentials).length ? credentials : null;
   };
 
@@ -140,6 +174,7 @@ function Integrations() {
         await api.post('/integrations', payload);
       }
       await loadIntegrations();
+      await refreshActiveIntegration();
       startCreate();
     } catch (err) {
       console.error('Failed to save integration', err);
@@ -154,6 +189,7 @@ function Integrations() {
     try {
       await api.delete(`/integrations/${integrationId}`);
       await loadIntegrations();
+      await refreshActiveIntegration();
       if (editingId === integrationId) {
         startCreate();
       }
@@ -169,6 +205,23 @@ function Integrations() {
   };
 
   const integrationsEmpty = useMemo(() => integrations.length === 0, [integrations]);
+  const activeId = activeIntegration?.id;
+  const capabilitiesFor = (provider: string) =>
+    providerInfo.find(item => item.provider === provider)?.capabilities ?? [];
+  const isActive = (integrationId: number) => activeId === integrationId;
+  const formatCapabilities = (caps: string[]) =>
+    caps.map(cap => (cap === 'BROKER_TRADING' ? 'Broker' : cap === 'SIGNALS' ? 'Signals' : cap)).join(' · ');
+
+  const activateIntegration = async (integrationId: number) => {
+    try {
+      await setActiveIntegrationAndLoadContracts(integrationId);
+      setActivationNotice('Active integration updated. Contracts refreshed.');
+      window.setTimeout(() => setActivationNotice(''), 2500);
+    } catch (err) {
+      console.error('Failed to activate integration', err);
+      setError('Unable to activate integration.');
+    }
+  };
 
   return (
     <div className="dashboard-shell">
@@ -198,8 +251,8 @@ function Integrations() {
         <aside className="panel card">
           <div className="panel-header">
             <div>
-              <p className="eyebrow">Providers</p>
-              <h2>{editingId ? 'Edit integration' : 'Add integration'}</h2>
+            <p className="eyebrow">Integration setup</p>
+            <h2>{editingId ? 'Edit integration' : 'Add integration'}</h2>
             </div>
             <button type="button" className="ghost compact" onClick={startCreate}>
               New
@@ -210,13 +263,18 @@ function Integrations() {
               {error}
             </div>
           )}
+          {activationNotice && (
+            <div className="inline-alert" role="status">
+              {activationNotice}
+            </div>
+          )}
           <form className="integration-form" onSubmit={handleSubmit}>
             <label htmlFor="display_name">Display name</label>
             <input
               id="display_name"
               value={form.display_name}
               onChange={e => setForm({ ...form, display_name: e.target.value })}
-              placeholder="TopStepX - Main"
+              placeholder="Broker - Main"
               required
             />
 
@@ -244,6 +302,13 @@ function Integrations() {
               <option value="disabled">Disabled</option>
               <option value="error">Error</option>
             </select>
+
+            <div className="form-divider">Active integration</div>
+            <p className="muted tiny">
+              {activeIntegration
+                ? `Current active integration: ${activeIntegration.display_name}`
+                : 'No active integration selected yet.'}
+            </p>
 
             <div className="form-divider">Metadata</div>
             <label htmlFor="environment">Environment</label>
@@ -275,30 +340,69 @@ function Integrations() {
             {hasStoredCredentials && editingId && (
               <p className="muted tiny">Credentials are stored. Enter new values to rotate.</p>
             )}
-            <label htmlFor="apiKey">API Key</label>
-            <input
-              id="apiKey"
-              type="password"
-              value={form.apiKey}
-              onChange={e => setForm({ ...form, apiKey: e.target.value })}
-              placeholder="••••••••"
-            />
-            <label htmlFor="apiSecret">API Secret</label>
-            <input
-              id="apiSecret"
-              type="password"
-              value={form.apiSecret}
-              onChange={e => setForm({ ...form, apiSecret: e.target.value })}
-              placeholder="••••••••"
-            />
-            <label htmlFor="refreshToken">Refresh Token</label>
-            <input
-              id="refreshToken"
-              type="password"
-              value={form.refreshToken}
-              onChange={e => setForm({ ...form, refreshToken: e.target.value })}
-              placeholder="••••••••"
-            />
+            {form.provider === 'TOPSTEPX' && (
+              <>
+                <label htmlFor="userName">Username</label>
+                <input
+                  id="userName"
+                  value={form.userName}
+                  onChange={e => setForm({ ...form, userName: e.target.value })}
+                  placeholder="account username"
+                />
+                <label htmlFor="apiKey">API Key</label>
+                <input
+                  id="apiKey"
+                  type="password"
+                  value={form.apiKey}
+                  onChange={e => setForm({ ...form, apiKey: e.target.value })}
+                  placeholder="••••••••"
+                />
+              </>
+            )}
+
+            {form.provider === 'TRADINGVIEW' && (
+              <>
+                <label htmlFor="webhookSecret">Webhook Secret (optional)</label>
+                <input
+                  id="webhookSecret"
+                  type="password"
+                  value={form.webhookSecret}
+                  onChange={e => setForm({ ...form, webhookSecret: e.target.value })}
+                  placeholder="••••••••"
+                />
+                <p className="muted tiny">Signals only. No broker trading credentials required.</p>
+              </>
+            )}
+
+            {form.provider !== 'TOPSTEPX' && form.provider !== 'TRADINGVIEW' && (
+              <>
+                <p className="muted tiny">Broker integration setup is coming soon.</p>
+                <label htmlFor="apiKey">API Key</label>
+                <input
+                  id="apiKey"
+                  type="password"
+                  value={form.apiKey}
+                  onChange={e => setForm({ ...form, apiKey: e.target.value })}
+                  placeholder="••••••••"
+                />
+                <label htmlFor="apiSecret">API Secret</label>
+                <input
+                  id="apiSecret"
+                  type="password"
+                  value={form.apiSecret}
+                  onChange={e => setForm({ ...form, apiSecret: e.target.value })}
+                  placeholder="••••••••"
+                />
+                <label htmlFor="refreshToken">Refresh Token</label>
+                <input
+                  id="refreshToken"
+                  type="password"
+                  value={form.refreshToken}
+                  onChange={e => setForm({ ...form, refreshToken: e.target.value })}
+                  placeholder="••••••••"
+                />
+              </>
+            )}
 
             <button type="submit" className="primary" disabled={isLoading}>
               {isLoading ? 'Saving…' : editingId ? 'Update integration' : 'Save integration'}
@@ -309,7 +413,7 @@ function Integrations() {
         <section className="card integrations-list">
           <div className="panel-header">
             <div>
-              <p className="eyebrow">Linked platforms</p>
+              <p className="eyebrow">Linked integrations</p>
               <h2>Integrations</h2>
             </div>
             <span className="pill">{integrations.length}</span>
@@ -319,8 +423,8 @@ function Integrations() {
             <div className="empty-state">
               <h3>No integrations yet</h3>
               <p className="muted">
-                Add your first trading platform to enable live signals and automated trade
-                execution.
+                Add your first broker or signal integration to enable live alerts and automated
+                trade execution.
               </p>
               <button type="button" className="primary" onClick={startCreate}>
                 Add integration
@@ -335,6 +439,11 @@ function Integrations() {
                     <p className="muted tiny">
                       {integration.provider} · {integration.status}
                     </p>
+                    {formatCapabilities(capabilitiesFor(integration.provider)) && (
+                      <p className="muted tiny">
+                        {formatCapabilities(capabilitiesFor(integration.provider))}
+                      </p>
+                    )}
                     <div className="meta-row">
                       <span>Environment:</span>
                       <strong>{integration.metadata?.environment ?? '—'}</strong>
@@ -345,6 +454,17 @@ function Integrations() {
                     </div>
                   </div>
                   <div className="integration-actions">
+                    {isActive(integration.id) ? (
+                      <span className="pill subtle">Active</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="ghost compact"
+                        onClick={() => activateIntegration(integration.id)}
+                      >
+                        Set active
+                      </button>
+                    )}
                     <button type="button" className="ghost compact" onClick={() => startEdit(integration)}>
                       Edit
                     </button>

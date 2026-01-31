@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from . import database, models
 from .auth_routes import get_current_user_model
 from .crypto import encrypt_credentials
+from .integrations_service import set_active_integration
+from .providers.types import PROVIDER_CAPABILITIES
 
 router = APIRouter()
 
@@ -65,7 +67,7 @@ def create_integration(
         display_name=payload.display_name,
         provider=payload.provider.value,
         status=payload.status or "active",
-        metadata=payload.metadata,
+        integration_metadata=payload.metadata,
         credentials_encrypted=encrypted,
     )
     db.add(integration)
@@ -97,7 +99,7 @@ def update_integration(
     if payload.status is not None:
         integration.status = payload.status
     if payload.metadata is not None:
-        integration.metadata = payload.metadata
+        integration.integration_metadata = payload.metadata
     if payload.credentials is not None:
         integration.credentials_encrypted = encrypt_credentials(payload.credentials)
     db.commit()
@@ -112,6 +114,45 @@ def delete_integration(
     current_user: models.User = Depends(get_current_user_model),
 ):
     integration = _get_integration_or_404(db, integration_id, current_user.id)
+    if current_user.active_integration_id == integration.id:
+        current_user.active_integration_id = None
     db.delete(integration)
     db.commit()
     return None
+
+
+@router.get("/integrations/active")
+def get_active_integration(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    if not current_user.active_integration_id:
+        return {"active": None}
+    integration = _get_integration_or_404(db, current_user.active_integration_id, current_user.id)
+    return {"active": _to_public(integration)}
+
+
+@router.put("/integrations/{integration_id}/activate")
+def activate_integration(
+    integration_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    try:
+        integration = set_active_integration(db, current_user.id, integration_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"active": _to_public(integration)}
+
+
+@router.get("/integrations/providers")
+def list_providers():
+    providers = []
+    for provider, capabilities in PROVIDER_CAPABILITIES.items():
+        providers.append(
+            {
+                "provider": provider.value,
+                "capabilities": [cap.value for cap in capabilities],
+            }
+        )
+    return {"providers": providers}
