@@ -6,9 +6,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
+import os
 import requests
 
-from config import BASE_URL
 from app.auth import get_session_token
 from app.indicators import compute_indicators
 from app.projectx import get_contract_id
@@ -23,6 +23,7 @@ from app.market_analysis import (
 )
 from app.divergence import detect_divergence
 
+BASE_URL = os.getenv("TOPSTEP_BASE_URL", "https://api.topstepx.com")
 
 @dataclass
 class Trade:

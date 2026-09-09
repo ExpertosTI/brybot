@@ -92,4 +92,4 @@ class IntegrationOut(BaseModel):
     has_credentials: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True

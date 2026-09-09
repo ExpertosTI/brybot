@@ -10,13 +10,12 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
-app.include_router(integrations_routes.router, tags=["integrations"])
-app.include_router(scheduler.router, prefix="/scheduler", tags=["scheduler"])
-app.include_router(contracts.router, tags=["contracts"])
-app.include_router(analysis_routes.router, prefix="/analysis", tags=["analysis"])
-app.include_router(trading_router, prefix="/trading", tags=["trading"])
 
+@app.get("/healthz", tags=["health"])
+def healthcheck():
+    return {"status": "ok"}
+
+# ── CORS must be registered BEFORE routers ──────────────────────
 cors_origins_env = os.getenv("CORS_ORIGINS")
 if cors_origins_env:
     cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
@@ -36,3 +35,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Routers ─────────────────────────────────────────────────────
+app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
+app.include_router(integrations_routes.router, tags=["integrations"])
+app.include_router(scheduler.router, prefix="/scheduler", tags=["scheduler"])
+app.include_router(contracts.router, tags=["contracts"])
+app.include_router(analysis_routes.router, prefix="/analysis", tags=["analysis"])
+app.include_router(trading_router, prefix="/trading", tags=["trading"])

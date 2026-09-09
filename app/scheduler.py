@@ -278,11 +278,8 @@ def run_bot(
 
                 if df is None or df.empty:
                     yield log("⚠️ No data returned.")
-                    try:
-                        async for msg in wait_interval():
-                            yield msg
-                    except StopAsyncIteration:
-                        break
+                    async for msg in wait_interval():
+                        yield msg
                     continue
 
                 indicators = compute_indicators(df)
@@ -341,10 +338,7 @@ def run_bot(
             except Exception as e:
                 yield log(f"❌ Error during bot loop: {str(e)}")
 
-            try:
-                async for msg in wait_interval():
-                    yield msg
-            except StopAsyncIteration:
-                break
+            async for msg in wait_interval():
+                yield msg
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

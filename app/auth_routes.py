@@ -6,11 +6,8 @@ import os
 from datetime import datetime, timedelta
 from . import models, database
 from .security import hash_password, verify_password
+from .auth import get_session_token
 import re
-
-def get_session_token():
-    # Placeholder implementation for get_session_token
-    return "mocked-session-token"
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -66,7 +63,7 @@ def register(user: models.UserCreate, db: Session = Depends(database.get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return models.UserPublic.from_orm(new_user)
+    return models.UserPublic.model_validate(new_user)
 
 @router.post("/token")
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):

@@ -1,8 +1,12 @@
 ﻿venv/
+.venv/
+.vscode/
 __pycache__/
 *.pyc
 .env
 .env.*
+!.env.example
+!.env.swarm.example
 *.sqlite3
 *.log
 *.csv

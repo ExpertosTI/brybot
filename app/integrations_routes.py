@@ -76,6 +76,34 @@ def create_integration(
     return _to_public(integration)
 
 
+# ── Fixed: static paths BEFORE parametric /{integration_id} ─────
+
+@router.get("/integrations/active")
+def get_active_integration(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    if not current_user.active_integration_id:
+        return {"active": None}
+    integration = _get_integration_or_404(db, current_user.active_integration_id, current_user.id)
+    return {"active": _to_public(integration)}
+
+
+@router.get("/integrations/providers")
+def list_providers():
+    providers = []
+    for provider, capabilities in PROVIDER_CAPABILITIES.items():
+        providers.append(
+            {
+                "provider": provider.value,
+                "capabilities": [cap.value for cap in capabilities],
+            }
+        )
+    return {"providers": providers}
+
+
+# ── Parametric routes (must come AFTER static paths) ────────────
+
 @router.get("/integrations/{integration_id}", response_model=models.IntegrationOut)
 def get_integration(
     integration_id: int,
@@ -121,17 +149,6 @@ def delete_integration(
     return None
 
 
-@router.get("/integrations/active")
-def get_active_integration(
-    db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(get_current_user_model),
-):
-    if not current_user.active_integration_id:
-        return {"active": None}
-    integration = _get_integration_or_404(db, current_user.active_integration_id, current_user.id)
-    return {"active": _to_public(integration)}
-
-
 @router.put("/integrations/{integration_id}/activate")
 def activate_integration(
     integration_id: int,
@@ -143,16 +160,3 @@ def activate_integration(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return {"active": _to_public(integration)}
-
-
-@router.get("/integrations/providers")
-def list_providers():
-    providers = []
-    for provider, capabilities in PROVIDER_CAPABILITIES.items():
-        providers.append(
-            {
-                "provider": provider.value,
-                "capabilities": [cap.value for cap in capabilities],
-            }
-        )
-    return {"providers": providers}

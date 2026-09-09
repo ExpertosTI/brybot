@@ -95,3 +95,44 @@ Example payload:
 ### ⏱️ Intraday bot intervals
 
 The streaming bot can now fetch either 1-minute or 3-minute bars via the `bar_interval_minutes` parameter on `/scheduler/run-bot`, while still honoring the existing `interval_seconds` poll cadence.
+
+## 🚢 Despliegue compuesto
+
+El dominio público previsto es `https://trade.adderlymarte.com`. El despliegue incluye
+Traefik, HTTPS mediante Let's Encrypt, PostgreSQL, backend FastAPI y frontend React.
+
+### Despliegue único en RENACE Swarm
+
+```bash
+cp .env.example .env
+# Edita .env y sustituye todos los secretos y credenciales de ejemplo.
+chmod +x deploy.sh
+./deploy.sh
+```
+
+`deploy.sh` es el único archivo operativo. Valida que el nodo esté en Swarm, comprueba la
+red externa `RenaceNet`, construye backend y frontend, despliega el stack `brybot`, espera
+las réplicas y verifica `https://trade.adderlymarte.com/healthz`. Para actualizar, se vuelve
+a ejecutar el mismo archivo:
+
+```bash
+./deploy.sh
+```
+
+El `docker-compose.yml` reutiliza Traefik existente en `RenaceNet` y el resolver
+`letsencryptresolver`; no levanta otro Traefik ni ocupa los puertos 80/443.
+
+Diagnóstico y rollback:
+
+```bash
+docker stack services brybot
+docker stack ps brybot --no-trunc
+docker service logs -f brybot_backend
+docker service logs -f brybot_frontend
+docker service rollback brybot_backend
+docker service rollback brybot_frontend
+curl -fsS https://trade.adderlymarte.com/healthz
+```
+
+No se deben guardar `.env`, `.env.swarm` ni credenciales en Git. Antes de activar
+auto-trading, valida primero en observación o paper trading.
