@@ -16,11 +16,13 @@ echo "========================================================"
 
 cd "$PROJECT_DIR"
 
-# 1. Verify .env
+# 1. Verify and sanitize .env (RENACE unique host standard: brybot_db)
 if [ ! -f .env ]; then
   echo "❌ Error: .env file missing in $PROJECT_DIR."
   exit 1
 fi
+
+sed -i 's|@db:5432|@brybot_db:5432|g' .env 2>/dev/null || true
 
 set -a
 . ./.env
@@ -39,11 +41,12 @@ docker network inspect RenaceNet >/dev/null 2>&1 || {
   exit 1
 }
 
-# 3. Disk space check
+# 3. Disk space check & deep clean if high (standard www.renace.tech)
 DISK_USE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
-if [ "$DISK_USE" -gt 88 ]; then
-  echo "⚠️  Disk usage at ${DISK_USE}%. Pruning dangling images..."
-  docker image prune -f 2>/dev/null || true
+if [ "$DISK_USE" -gt 85 ]; then
+  echo "⚠️  Disk usage at ${DISK_USE}%. Running deep Docker cleanup..."
+  docker builder prune -af --filter "until=24h" 2>/dev/null || true
+  docker image prune -af --filter "until=72h" 2>/dev/null || true
 fi
 
 # 4. Build images
@@ -54,18 +57,18 @@ docker compose build
 echo "🚀 Deploying stack '$STACK_NAME'..."
 docker stack deploy --with-registry-auth -c docker-compose.yml "$STACK_NAME"
 
-# 6. Cleanup dangling images
+# 6. Cleanup builder cache
 docker image prune -f 2>/dev/null || true
 
 # 7. Verify health
 echo "⏳ Waiting for services to reach 1/1 replicas..."
 RETRIES=0
-MAX_RETRIES=30
+MAX_RETRIES=35
 while [ $RETRIES -lt $MAX_RETRIES ]; do
   services="$(docker stack services "$STACK_NAME" --format '{{.Replicas}}' 2>/dev/null || true)"
   if [ -n "$services" ] && ! printf '%s\n' "$services" | grep -qE '(^|[[:space:]])0/[0-9]+'; then
     echo "========================================================"
-    echo "✅ All services running successfully!"
+    echo "✅ All services running successfully (1/1 replicas)!"
     docker stack services "$STACK_NAME"
     echo "🌐 App URL: https://${APP_DOMAIN}"
     echo "========================================================"
@@ -77,6 +80,9 @@ while [ $RETRIES -lt $MAX_RETRIES ]; do
 done
 
 echo ""
-echo "⚠️  Services still starting. Current state:"
+echo "⚠️  Checking service status:"
 docker stack services "$STACK_NAME"
+echo ""
+echo "📜 Recent backend logs:"
+docker service logs --tail 30 "${STACK_NAME}_backend" || true
 exit 0
