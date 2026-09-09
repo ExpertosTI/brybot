@@ -51,17 +51,16 @@ fi
 
 # 3. Build & Deploy
 echo "Building images..."
-docker compose build --pull
+docker compose build
 
 echo "Deploying stack..."
 set -a
 . ./.env
 set +a
-docker compose config > /tmp/brybot-resolved.yml
-docker stack deploy --with-registry-auth -c /tmp/brybot-resolved.yml brybot
-rm -f /tmp/brybot-resolved.yml
+docker stack deploy --with-registry-auth -c docker-compose.yml brybot
 
 echo ""
+
 
 echo "=== Waiting for services to start ==="
 attempt=1

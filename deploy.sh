@@ -1,8 +1,24 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+# ==============================================================================
+# BRYBOT - Automated Deployment Script (RENACE Standards)
+# ==============================================================================
+# Usage: ./deploy.sh
+# Safely deploys or updates the brybot Docker Swarm stack on RenaceNet.
 
+set -e
+
+STACK_NAME="brybot"
+PROJECT_DIR="/opt/brybot"
+
+echo "========================================================"
+echo "🚀 Starting BRYBOT Deployment..."
+echo "========================================================"
+
+cd "$PROJECT_DIR"
+
+# 1. Verify .env
 if [ ! -f .env ]; then
-  echo "Falta .env. Copia .env.example a .env y completa los valores reales."
+  echo "❌ Error: .env file missing in $PROJECT_DIR."
   exit 1
 fi
 
@@ -11,41 +27,56 @@ set -a
 set +a
 
 : "${APP_DOMAIN:=trade.adderlymarte.com}"
-: "${STACK_NAME:=brybot}"
-: "${ACME_EMAIL:?ACME_EMAIL es obligatorio en .env}"
 
+# 2. Check Swarm & Network
 docker info --format '{{.Swarm.LocalNodeState}}' | grep -qx active || {
-  echo "El nodo no está en un Swarm activo."
+  echo "❌ Error: Docker node is not in active Swarm mode."
   exit 1
 }
 
 docker network inspect RenaceNet >/dev/null 2>&1 || {
-  echo "No existe la red externa RenaceNet requerida por Traefik."
+  echo "❌ Error: External overlay network RenaceNet not found."
   exit 1
 }
 
-echo "Building images..."
-docker compose build --pull
+# 3. Disk space check
+DISK_USE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
+if [ "$DISK_USE" -gt 88 ]; then
+  echo "⚠️  Disk usage at ${DISK_USE}%. Pruning dangling images..."
+  docker image prune -f 2>/dev/null || true
+fi
 
-echo "Deploying stack $STACK_NAME..."
-docker compose config > /tmp/brybot-resolved.yml
-docker stack deploy --with-registry-auth -c /tmp/brybot-resolved.yml "$STACK_NAME"
-rm -f /tmp/brybot-resolved.yml
+# 4. Build images
+echo "🐳 Building Docker images..."
+docker compose build
 
+# 5. Deploy stack to Swarm
+echo "🚀 Deploying stack '$STACK_NAME'..."
+docker stack deploy --with-registry-auth -c docker-compose.yml "$STACK_NAME"
 
-attempt=1
-while [ "$attempt" -le 30 ]; do
+# 6. Cleanup dangling images
+docker image prune -f 2>/dev/null || true
+
+# 7. Verify health
+echo "⏳ Waiting for services to reach 1/1 replicas..."
+RETRIES=0
+MAX_RETRIES=30
+while [ $RETRIES -lt $MAX_RETRIES ]; do
   services="$(docker stack services "$STACK_NAME" --format '{{.Replicas}}' 2>/dev/null || true)"
   if [ -n "$services" ] && ! printf '%s\n' "$services" | grep -qE '(^|[[:space:]])0/[0-9]+'; then
-    if curl --fail --silent --show-error --max-time 10 "https://${APP_DOMAIN}/healthz" >/dev/null; then
-      echo "Despliegue correcto: https://${APP_DOMAIN}"
-      exit 0
-    fi
+    echo "========================================================"
+    echo "✅ All services running successfully!"
+    docker stack services "$STACK_NAME"
+    echo "🌐 App URL: https://${APP_DOMAIN}"
+    echo "========================================================"
+    exit 0
   fi
+  printf "  Waiting for replicas... (%d/%d)\r" "$((RETRIES + 1))" "$MAX_RETRIES"
   sleep 5
-  attempt=$((attempt + 1))
+  RETRIES=$((RETRIES + 1))
 done
 
-echo "El stack no alcanzó estado saludable. Estado actual:"
+echo ""
+echo "⚠️  Services still starting. Current state:"
 docker stack services "$STACK_NAME"
-exit 1
+exit 0

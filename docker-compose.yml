@@ -1,46 +1,57 @@
+# BRYBOT — Docker Swarm stack (Traefik / RenaceNet)
+# Uso: docker compose build && docker stack deploy -c docker-compose.yml brybot
+
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - brybot_db_data:/var/lib/postgresql/data
     networks:
-      - brybot_internal
+      brybot_internal:
+        aliases:
+          - brybot_db
+          - brybot-db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     deploy:
       replicas: 1
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          memory: 512M
 
   backend:
+    image: brybot-backend:latest
     build:
       context: .
-    image: brybot-backend:latest
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
       CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
-      TOPSTEP_USER: ${TOPSTEP_USER}
-      TOPSTEP_API_KEY: ${TOPSTEP_API_KEY}
-      TOPSTEP_ACCOUNT_ID: ${TOPSTEP_ACCOUNT_ID}
-      TRADINGVIEW_API_KEY: ${TRADINGVIEW_API_KEY}
-      TRADINGVIEW_BASE_URL: ${TRADINGVIEW_BASE_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      TOPSTEP_USER: ${TOPSTEP_USER:-}
+      TOPSTEP_API_KEY: ${TOPSTEP_API_KEY:-}
+      TOPSTEP_ACCOUNT_ID: ${TOPSTEP_ACCOUNT_ID:-}
+      TRADINGVIEW_API_KEY: ${TRADINGVIEW_API_KEY:-}
+      TRADINGVIEW_BASE_URL: ${TRADINGVIEW_BASE_URL:-https://api.tradingview.com}
     networks:
       - brybot_internal
-      - renace_net
+      - RenaceNet
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
       interval: 15s
       timeout: 5s
       retries: 5
+      start_period: 15s
     deploy:
       replicas: 1
       update_config:
@@ -53,33 +64,37 @@ services:
         order: stop-first
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          memory: 768M
       labels:
-        - traefik.enable=true
-        - traefik.docker.network=RenaceNet
-        - traefik.http.routers.brybot-api.rule=Host(`${APP_DOMAIN:?APP_DOMAIN is required}`) && PathPrefix(`/api`)
-        - traefik.http.routers.brybot-api.entrypoints=websecure
-        - traefik.http.routers.brybot-api.tls=true
-        - traefik.http.routers.brybot-api.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.brybot-api.middlewares=brybot-api-strip
-        - traefik.http.middlewares.brybot-api-strip.stripprefix.prefixes=/api
-        - traefik.http.services.brybot-api.loadbalancer.server.port=8000
+        - "traefik.enable=true"
+        - "traefik.docker.network=RenaceNet"
+        - "traefik.http.routers.brybot-api.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api`)"
+        - "traefik.http.routers.brybot-api.entrypoints=websecure"
+        - "traefik.http.routers.brybot-api.tls=true"
+        - "traefik.http.routers.brybot-api.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.brybot-api.middlewares=brybot-api-strip"
+        - "traefik.http.routers.brybot-api.service=brybot-api-svc"
+        - "traefik.http.middlewares.brybot-api-strip.stripprefix.prefixes=/api"
+        - "traefik.http.services.brybot-api-svc.loadbalancer.server.port=8000"
 
   frontend:
+    image: brybot-frontend:latest
     build:
       context: ./frontend
       args:
         VITE_API_URL: /api
-    image: brybot-frontend:latest
     networks:
-      - renace_net
+      - RenaceNet
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5
+      start_period: 15s
     deploy:
       replicas: 1
-
       update_config:
         parallelism: 1
         order: start-first
@@ -90,21 +105,30 @@ services:
         order: stop-first
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          memory: 256M
       labels:
-        - traefik.enable=true
-        - traefik.docker.network=RenaceNet
-        - traefik.http.routers.brybot-web.rule=Host(`${APP_DOMAIN:?APP_DOMAIN is required}`)
-        - traefik.http.routers.brybot-web.entrypoints=websecure
-        - traefik.http.routers.brybot-web.tls=true
-        - traefik.http.routers.brybot-web.tls.certresolver=letsencryptresolver
-        - traefik.http.services.brybot-web.loadbalancer.server.port=80
+        - "traefik.enable=true"
+        - "traefik.docker.network=RenaceNet"
+        - "traefik.http.routers.brybot-web-http.rule=Host(`${APP_DOMAIN}`)"
+        - "traefik.http.routers.brybot-web-http.entrypoints=web"
+        - "traefik.http.routers.brybot-web-http.middlewares=brybot-web-redirect-https"
+        - "traefik.http.routers.brybot-web-http.service=brybot-web-svc"
+        - "traefik.http.routers.brybot-web.rule=Host(`${APP_DOMAIN}`)"
+        - "traefik.http.routers.brybot-web.entrypoints=websecure"
+        - "traefik.http.routers.brybot-web.tls=true"
+        - "traefik.http.routers.brybot-web.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.brybot-web.service=brybot-web-svc"
+        - "traefik.http.middlewares.brybot-web-redirect-https.redirectscheme.scheme=https"
+        - "traefik.http.services.brybot-web-svc.loadbalancer.server.port=80"
 
 volumes:
   brybot_db_data:
+    driver: local
 
 networks:
   brybot_internal:
     driver: overlay
-  renace_net:
+  RenaceNet:
     external: true
-    name: RenaceNet
