@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -35,12 +38,12 @@ BOT_STATE = {
 class BotConfig(BaseModel):
     """Partial update model for bot configuration."""
 
-    buy_threshold: int | None = None
-    sell_threshold: int | None = None
-    auto_trade: bool | None = None
-    quantity: int | None = None
-    interval_seconds: int | None = None
-    bar_interval_minutes: int | None = None
+    buy_threshold: Optional[int] = None
+    sell_threshold: Optional[int] = None
+    auto_trade: Optional[bool] = None
+    quantity: Optional[int] = None
+    interval_seconds: Optional[int] = None
+    bar_interval_minutes: Optional[int] = None
 
 router = APIRouter()
 
@@ -49,7 +52,7 @@ class TradeRequest(BaseModel):
     symbol: str
     side: str  # "BUY" or "SELL"
     quantity: int
-    integration_id: int | None = None
+    integration_id: Optional[int] = None
 
 
 @router.post("/update-config")
@@ -164,8 +167,8 @@ def run_bot(
     sell_threshold: int = 70,
     auto_trade: bool = True,
     bar_interval_minutes: int = 1,
-    access_token: str | None = None,
-    integration_id: int | None = None,
+    access_token: Optional[str] = None,
+    integration_id: Optional[int] = None,
 ):
     """Stream bot output to the client in real time using Server-Sent Events."""
 

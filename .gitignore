@@ -1,4 +1,4 @@
-﻿venv/
+venv/
 .venv/
 .vscode/
 __pycache__/
@@ -8,7 +8,9 @@ __pycache__/
 !.env.example
 !.env.swarm.example
 *.sqlite3
+*.db
 *.log
+
 *.csv
 .idea/
 .DS_Store

@@ -1,12 +1,14 @@
 import os
+import secrets
 
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("SECRET_KEY", secrets.token_hex(32))
 os.environ.setdefault("CREDENTIALS_ENCRYPTION_KEY", Fernet.generate_key().decode("utf-8"))
+
 
 from app import database  # noqa: E402
 from app.main import app  # noqa: E402

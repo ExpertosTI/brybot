@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 import os
+from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -14,7 +17,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _fallback_contracts():
+def _get_fallback_contracts() -> list[str]:
     """Provide a small set of recognizable contracts when API auth is unavailable."""
     fallback_env = os.getenv("FALLBACK_CONTRACTS", "ES,NQ,YM,CL,GC")
     return [symbol.strip() for symbol in fallback_env.split(",") if symbol.strip()]
@@ -22,8 +25,8 @@ def _fallback_contracts():
 
 @router.get("/contracts")
 async def list_contracts(
-    integration_id: int | None = None,
-    provider: IntegrationProvider | None = None,
+    integration_id: Optional[int] = None,
+    provider: Optional[IntegrationProvider] = None,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user_model),
 ):

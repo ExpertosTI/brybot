@@ -1,4 +1,6 @@
-# app/trading_routes.py
+from __future__ import annotations
+
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from datetime import datetime
@@ -21,9 +23,9 @@ class TradingSignal(BaseModel):
     symbol: str
     side: str  # "BUY" | "SELL"
     quantity: int
-    signal_integration_id: int | None = None
-    broker_integration_id: int | None = None
-    secret: str | None = None
+    signal_integration_id: Optional[int] = None
+    broker_integration_id: Optional[int] = None
+    secret: Optional[str] = None
 
 @router.get("/test-trade")
 async def test_trade(
