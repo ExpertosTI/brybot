@@ -6,7 +6,9 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+set -a
 . ./.env
+set +a
 
 : "${APP_DOMAIN:=trade.adderlymarte.com}"
 : "${STACK_NAME:=brybot}"
@@ -22,9 +24,14 @@ docker network inspect RenaceNet >/dev/null 2>&1 || {
   exit 1
 }
 
-docker compose config >/dev/null
+echo "Building images..."
 docker compose build --pull
-docker stack deploy --with-registry-auth -c docker-compose.yml "$STACK_NAME"
+
+echo "Deploying stack $STACK_NAME..."
+docker compose config > /tmp/brybot-resolved.yml
+docker stack deploy --with-registry-auth -c /tmp/brybot-resolved.yml "$STACK_NAME"
+rm -f /tmp/brybot-resolved.yml
+
 
 attempt=1
 while [ "$attempt" -le 30 ]; do

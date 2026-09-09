@@ -54,9 +54,15 @@ echo "Building images..."
 docker compose build --pull
 
 echo "Deploying stack..."
-docker stack deploy --with-registry-auth -c docker-compose.yml brybot
+set -a
+. ./.env
+set +a
+docker compose config > /tmp/brybot-resolved.yml
+docker stack deploy --with-registry-auth -c /tmp/brybot-resolved.yml brybot
+rm -f /tmp/brybot-resolved.yml
 
 echo ""
+
 echo "=== Waiting for services to start ==="
 attempt=1
 while [ "$attempt" -le 30 ]; do
