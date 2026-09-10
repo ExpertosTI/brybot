@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import axios from 'axios';
 import { api, API_BASE_URL } from '../api';
 
 function Login() {
@@ -37,7 +38,8 @@ function Login() {
       navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Login failed', err);
-      setError('Login failed. Please check your username and password.');
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
+      setError(detail || 'Login failed. Please check your username and password.');
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +59,8 @@ function Login() {
       navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Demo login failed', err);
-      setError('Demo mode is temporarily unavailable.');
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
+      setError(detail || 'Demo mode is temporarily unavailable.');
     } finally {
       setIsLoading(false);
     }
@@ -66,13 +69,18 @@ function Login() {
   return (
     <div className="auth-shell">
       <div className="login-panel">
+        <div className="login-mark" aria-hidden="true">
+          <span className="login-mark-line" />
+          <span className="login-mark-line login-mark-line-short" />
+          <span className="login-mark-dot" />
+        </div>
         <div className="login-header">
           <div>
-            <p className="eyebrow">TopStep MVP Bot</p>
-            <h1>Sign in</h1>
-            <p className="muted">Connect to monitor the RSI bot and manage sessions.</p>
+            <p className="eyebrow">BRYBOT / MARKET LAB</p>
+            <h1>Trade with a clearer signal.</h1>
+            <p className="muted">A focused workspace for market structure, RSI strategy and paper execution.</p>
           </div>
-          <span className="pill status success">Secure</span>
+          <span className="login-live-dot">Live</span>
         </div>
         {loggedOut && (
           <div className="inline-alert" role="status" aria-live="polite">
@@ -89,6 +97,14 @@ function Login() {
             {error}
           </div>
         )}
+        <button type="button" className="demo-cta" onClick={handleDemoLogin} disabled={isLoading}>
+          <span>
+            <strong>{isLoading ? 'Opening workspace...' : 'Enter demo workspace'}</strong>
+            <small>Virtual balance / synthetic market / no live orders</small>
+          </span>
+          <span className="demo-arrow" aria-hidden="true">-&gt;</span>
+        </button>
+        <div className="login-divider"><span>or sign in with an account</span></div>
         <form onSubmit={handleSubmit} className="login-form">
           <label htmlFor="username">Username</label>
           <input
@@ -116,10 +132,7 @@ function Login() {
             {isLoading ? 'Logging in…' : 'Login'}
           </button>
         </form>
-        <button type="button" className="ghost" onClick={handleDemoLogin} disabled={isLoading}>
-          {isLoading ? 'Opening demo…' : 'Enter demo mode'}
-        </button>
-        <p className="tiny muted">API: {API_BASE_URL}</p>
+        <p className="tiny muted login-api">Connected endpoint: {API_BASE_URL}</p>
         <p className="tiny muted">
           New here? <Link to="/register">Create an account</Link>
         </p>

@@ -135,6 +135,10 @@ def test_demo_login():
     assert me_resp.status_code == 200
     assert me_resp.json()["username"] == "demo"
 
+    second_response = client.post("/auth/demo-login")
+    assert second_response.status_code == 200
+    assert second_response.json()["integration_id"] == payload["integration_id"]
+
 
 def test_topstep_direct_login():
     payload = {

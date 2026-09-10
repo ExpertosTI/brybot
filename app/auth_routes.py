@@ -54,6 +54,7 @@ def ensure_demo_integration(db: Session, user: models.User) -> models.PlatformIn
         )
         db.add(demo)
         db.flush()
+    demo.status = "active"
     if not user.active_integration_id:
         user.active_integration_id = demo.id
     db.commit()
@@ -125,40 +126,20 @@ def demo_login(db: Session = Depends(database.get_db)):
     """Authenticate or auto-provision the simulated demo account."""
     demo_user = get_user_by_username(db, "demo")
     if not demo_user:
+        email = "demo@trade.adderlymarte.com"
+        if db.query(models.User).filter(models.User.email == email).first():
+            email = f"demo+{secrets.token_hex(4)}@trade.adderlymarte.com"
         random_pw = secrets.token_urlsafe(16) + "A1a!"
         demo_user = models.User(
             username="demo",
-            email="demo@trade.adderlymarte.com",
+            email=email,
             hashed_password=hash_password(random_pw),
         )
         db.add(demo_user)
         db.commit()
         db.refresh(demo_user)
 
-    # Ensure demo integration exists
-    demo_integration = (
-        db.query(models.PlatformIntegration)
-        .filter(
-            models.PlatformIntegration.user_id == demo_user.id,
-            models.PlatformIntegration.provider == models.IntegrationProvider.DEMO.value,
-        )
-        .first()
-    )
-    if not demo_integration:
-        demo_integration = models.PlatformIntegration(
-            user_id=demo_user.id,
-            display_name="TopStepX Demo (Simulado)",
-            provider=models.IntegrationProvider.DEMO.value,
-            status="active",
-            integration_metadata={"accountId": f"DEMO-{demo_user.id:06d}", "startingBalance": 100000, "mode": "demo"},
-            credentials_encrypted="demo",
-        )
-        db.add(demo_integration)
-        db.commit()
-        db.refresh(demo_integration)
-
-    demo_user.active_integration_id = demo_integration.id
-    db.commit()
+    demo_integration = ensure_demo_integration(db, demo_user)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES * 4)
     token = create_access_token(
