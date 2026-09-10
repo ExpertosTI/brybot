@@ -60,7 +60,9 @@ def create_integration(
     current_user: models.User = Depends(get_current_user_model),
 ):
     encrypted = None
-    if payload.credentials:
+    if payload.provider == models.IntegrationProvider.DEMO:
+        encrypted = "demo"
+    elif payload.credentials:
         encrypted = encrypt_credentials(payload.credentials)
     integration = models.PlatformIntegration(
         user_id=current_user.id,

@@ -4,6 +4,7 @@ from enum import Enum
 
 
 class IntegrationProvider(str, Enum):
+    DEMO = "DEMO"
     TOPSTEPX = "TOPSTEPX"
     TRADOVATE = "TRADOVATE"
     NINJATRADER = "NINJATRADER"
@@ -21,6 +22,12 @@ class IntegrationCapability(str, Enum):
 
 
 PROVIDER_CAPABILITIES: dict[IntegrationProvider, set[IntegrationCapability]] = {
+    IntegrationProvider.DEMO: {
+        IntegrationCapability.BROKER_TRADING,
+        IntegrationCapability.MARKET_DATA,
+        IntegrationCapability.ACCOUNT_INFO,
+        IntegrationCapability.PAPER_TRADING,
+    },
     IntegrationProvider.TOPSTEPX: {
         IntegrationCapability.BROKER_TRADING,
         IntegrationCapability.MARKET_DATA,

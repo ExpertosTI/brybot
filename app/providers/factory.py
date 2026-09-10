@@ -8,6 +8,8 @@ from app.integrations_service import normalize_credentials
 
 
 def decrypt_integration_credentials(integration: PlatformIntegration) -> dict:
+    if integration.provider == IntegrationProvider.DEMO:
+        return {}
     if not integration.credentials_encrypted:
         return {}
     return decrypt_blob(integration.credentials_encrypted)
@@ -18,6 +20,10 @@ def get_adapter(integration: PlatformIntegration) -> ProviderAdapter:
     credentials = decrypt_integration_credentials(integration)
     normalized = normalize_credentials(provider, credentials, integration.integration_metadata)
 
+    if provider == IntegrationProvider.DEMO:
+        from .demo import DemoAdapter
+
+        return DemoAdapter(normalized, integration.integration_metadata)
     if provider == IntegrationProvider.TOPSTEPX:
         from .topstepx import TopStepXAdapter
 

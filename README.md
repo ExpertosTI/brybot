@@ -44,9 +44,11 @@ TRADINGVIEW_BASE_URL=https://api.tradingview.com  # optional
 
 1. Start the backend and frontend (see setup above).
 2. Visit `/register` to create a new account.
-3. After registration you will be redirected to `/integrations` to connect platforms like
-   TopStepX, Tradovate, NinjaTrader, TradingView, or Interactive Brokers.
-4. Return to `/dashboard` to run the trading bot.
+3. Registration automatically provisions an active `Demo Account` with synthetic market data,
+  a virtual balance, and paper orders. No live broker is contacted in demo mode.
+4. You can use every dashboard workflow in demo mode immediately, or connect platforms like
+  TopStepX, Tradovate, NinjaTrader, TradingView, or Interactive Brokers from `/integrations`.
+5. Return to `/dashboard` to run the trading bot.
 
 ## 🗃️ Running migrations
 
@@ -118,6 +120,10 @@ a ejecutar el mismo archivo:
 ```bash
 ./deploy.sh
 ```
+
+Si el disco raíz supera el 85%, el script elimina contenedores detenidos y todo el cache
+reclamable de BuildKit antes de construir. No ejecuta limpiezas de volúmenes, por lo que
+los datos persistentes de PostgreSQL no se eliminan automáticamente.
 
 El `docker-compose.yml` reutiliza Traefik existente en `RenaceNet` y el resolver
 `letsencryptresolver`; no levanta otro Traefik ni ocupa los puertos 80/443.

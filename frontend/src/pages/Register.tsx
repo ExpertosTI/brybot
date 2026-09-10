@@ -59,7 +59,7 @@ function Register() {
         return;
       }
       localStorage.setItem('token', token);
-      navigate('/integrations', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Registration failed', err);
       setError('Registration failed. Please check your details and try again.');

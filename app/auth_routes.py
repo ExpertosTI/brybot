@@ -32,6 +32,35 @@ def authenticate_user(db: Session, username: str, password: str):
     return user
 
 
+def ensure_demo_integration(db: Session, user: models.User) -> models.PlatformIntegration:
+    demo = (
+        db.query(models.PlatformIntegration)
+        .filter(models.PlatformIntegration.user_id == user.id)
+        .filter(models.PlatformIntegration.provider == models.IntegrationProvider.DEMO.value)
+        .first()
+    )
+    if not demo:
+        demo = models.PlatformIntegration(
+            user_id=user.id,
+            display_name="Demo Account",
+            provider=models.IntegrationProvider.DEMO.value,
+            status="active",
+            integration_metadata={
+                "accountId": f"DEMO-{user.id:06d}",
+                "startingBalance": 100000,
+                "mode": "demo",
+            },
+            credentials_encrypted="demo",
+        )
+        db.add(demo)
+        db.flush()
+    if not user.active_integration_id:
+        user.active_integration_id = demo.id
+    db.commit()
+    db.refresh(demo)
+    return demo
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
@@ -65,6 +94,7 @@ def register(user: models.UserCreate, db: Session = Depends(database.get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    ensure_demo_integration(db, new_user)
     return models.UserPublic.model_validate(new_user)
 
 @router.post("/token")
@@ -78,10 +108,150 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(dat
     )
     return {"access_token": token, "token_type": "bearer"}
 
+import secrets
+from typing import Optional
+from pydantic import BaseModel
+
+
+class TopStepDirectLoginRequest(BaseModel):
+    username: str
+    api_key: str
+    account_id: Optional[str] = None
+    display_name: Optional[str] = "TopStepX Live"
+
+
+@router.post("/demo-login")
+def demo_login(db: Session = Depends(database.get_db)):
+    """Authenticate or auto-provision the simulated demo account."""
+    demo_user = get_user_by_username(db, "demo")
+    if not demo_user:
+        random_pw = secrets.token_urlsafe(16) + "A1a!"
+        demo_user = models.User(
+            username="demo",
+            email="demo@trade.adderlymarte.com",
+            hashed_password=hash_password(random_pw),
+        )
+        db.add(demo_user)
+        db.commit()
+        db.refresh(demo_user)
+
+    # Ensure demo integration exists
+    demo_integration = (
+        db.query(models.PlatformIntegration)
+        .filter(
+            models.PlatformIntegration.user_id == demo_user.id,
+            models.PlatformIntegration.provider == models.IntegrationProvider.DEMO.value,
+        )
+        .first()
+    )
+    if not demo_integration:
+        demo_integration = models.PlatformIntegration(
+            user_id=demo_user.id,
+            display_name="TopStepX Demo (Simulado)",
+            provider=models.IntegrationProvider.DEMO.value,
+            status="active",
+            integration_metadata={"accountId": f"DEMO-{demo_user.id:06d}", "startingBalance": 100000, "mode": "demo"},
+            credentials_encrypted="demo",
+        )
+        db.add(demo_integration)
+        db.commit()
+        db.refresh(demo_integration)
+
+    demo_user.active_integration_id = demo_integration.id
+    db.commit()
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES * 4)
+    token = create_access_token(
+        data={"sub": demo_user.username, "mode": "demo"},
+        expires_delta=access_token_expires,
+    )
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "username": "demo",
+        "mode": "demo",
+        "integration_id": demo_integration.id,
+    }
+
+
+@router.post("/topstep-direct-login")
+def topstep_direct_login(
+    payload: TopStepDirectLoginRequest,
+    db: Session = Depends(database.get_db),
+):
+    """Authenticate directly with TopStep credentials."""
+    if not payload.username or not payload.api_key:
+        raise HTTPException(status_code=400, detail="Username and API Key are required.")
+
+    user_handle = f"topstep_{payload.username.lower().replace('@', '_').replace('.', '_')}"
+    user = get_user_by_username(db, user_handle)
+    if not user:
+        random_pw = secrets.token_urlsafe(16) + "A1a!"
+        user = models.User(
+            username=user_handle,
+            email=f"{user_handle}@trade.adderlymarte.com",
+            hashed_password=hash_password(random_pw),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    from app.crypto import encrypt_credentials
+    encrypted_creds = encrypt_credentials({
+        "userName": payload.username,
+        "apiKey": payload.api_key,
+    })
+
+    integration = (
+        db.query(models.PlatformIntegration)
+        .filter(
+            models.PlatformIntegration.user_id == user.id,
+            models.PlatformIntegration.provider == models.IntegrationProvider.TOPSTEPX.value,
+        )
+        .first()
+    )
+    if not integration:
+        integration = models.PlatformIntegration(
+            user_id=user.id,
+            display_name=payload.display_name or "TopStepX Live",
+            provider=models.IntegrationProvider.TOPSTEPX.value,
+            status="active",
+            integration_metadata={"accountId": payload.account_id or payload.username, "mode": "live"},
+            credentials_encrypted=encrypted_creds,
+        )
+        db.add(integration)
+    else:
+        integration.credentials_encrypted = encrypted_creds
+        integration.status = "active"
+        if payload.account_id:
+            meta = integration.integration_metadata or {}
+            meta["accountId"] = payload.account_id
+            integration.integration_metadata = meta
+
+    db.commit()
+    db.refresh(integration)
+
+    user.active_integration_id = integration.id
+    db.commit()
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    token = create_access_token(
+        data={"sub": user.username, "mode": "live"},
+        expires_delta=access_token_expires,
+    )
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "username": user.username,
+        "integration_id": integration.id,
+    }
+
+
 @router.get("/me")
 def read_users_me(token: str = Depends(oauth2_scheme)):
     username = decode_jwt_token(token)
     return {"username": username}
+
 
 # Dependency to get current user
 
@@ -106,6 +276,7 @@ def get_current_user_model(
     user = get_user_by_username(db, username)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    ensure_demo_integration(db, user)
     return user
 
 @router.get("/topstep-token")

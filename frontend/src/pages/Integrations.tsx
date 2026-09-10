@@ -34,6 +34,7 @@ type FormState = {
 };
 
 const PROVIDERS = [
+  { value: 'DEMO', label: 'Demo / Paper Trading' },
   { value: 'TOPSTEPX', label: 'TopStepX' },
   { value: 'TRADOVATE', label: 'Tradovate' },
   { value: 'NINJATRADER', label: 'NinjaTrader' },
@@ -360,6 +361,9 @@ function Integrations() {
               </>
             )}
 
+            {form.provider === 'DEMO' && (
+              <p className="muted tiny">Virtual account with synthetic market data. No live orders are sent.</p>
+            )}
             {form.provider === 'TRADINGVIEW' && (
               <>
                 <label htmlFor="webhookSecret">Webhook Secret (optional)</label>

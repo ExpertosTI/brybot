@@ -54,6 +54,11 @@ def test_register_user_and_reject_duplicates():
     assert payload["email"] == "alice@example.com"
     assert "hashed_password" not in payload
 
+    demo_listing = client.get("/integrations", headers=auth_headers(login_user("alice", "StrongPass1")))
+    assert demo_listing.status_code == 200
+    assert len(demo_listing.json()) == 1
+    assert demo_listing.json()[0]["provider"] == "DEMO"
+
     duplicate_username = register_user("alice", "other@example.com", "StrongPass1")
     assert duplicate_username.status_code == 400
 
@@ -87,7 +92,7 @@ def test_integrations_crud_and_isolation():
 
     listing = client.get("/integrations", headers=auth_headers(token_alice))
     assert listing.status_code == 200
-    assert len(listing.json()) == 1
+    assert len(listing.json()) == 2
 
     integration_id = data["id"]
     updated = client.put(
@@ -113,4 +118,32 @@ def test_integrations_crud_and_isolation():
 
     listing_after = client.get("/integrations", headers=auth_headers(token_alice))
     assert listing_after.status_code == 200
-    assert listing_after.json() == []
+    assert len(listing_after.json()) == 1
+    assert listing_after.json()[0]["provider"] == "DEMO"
+
+
+def test_demo_login():
+    response = client.post("/auth/demo-login")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["username"] == "demo"
+    assert payload["mode"] == "demo"
+    assert "access_token" in payload
+
+    # Test accessing protected route with demo token
+    me_resp = client.get("/auth/me", headers=auth_headers(payload["access_token"]))
+    assert me_resp.status_code == 200
+    assert me_resp.json()["username"] == "demo"
+
+
+def test_topstep_direct_login():
+    payload = {
+        "username": "trader_topstep",
+        "api_key": "sec_topstep_key_123",
+        "account_id": "TS-9988",
+    }
+    response = client.post("/auth/topstep-direct-login", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert "trader_topstep" in data["username"]

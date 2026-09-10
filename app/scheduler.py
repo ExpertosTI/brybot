@@ -18,6 +18,7 @@ from app import database, models
 from app.auth_routes import decode_jwt_token, get_current_user_model, get_user_by_username
 from app.integrations_service import env_fallback_enabled, env_topstepx_credentials, resolve_integration
 from app.providers.factory import get_adapter
+from app.providers.base import ProviderAdapter
 from app.providers.topstepx import TopStepXAdapter
 from app.providers.types import IntegrationCapability
 
@@ -125,7 +126,7 @@ async def execute_trade_endpoint(
     response["source"] = source
     return response
 
-def fetch_price_data(adapter: TopStepXAdapter, symbol: str, interval_minutes=1, lookback_minutes=100):
+def fetch_price_data(adapter: ProviderAdapter, symbol: str, interval_minutes=1, lookback_minutes=100):
     end_time = datetime.utcnow()
     start_time = end_time - timedelta(days=30)
 
@@ -244,9 +245,6 @@ def run_bot(
                 yield log("❌ No active broker integration configured.")
                 return
 
-            if not isinstance(adapter, TopStepXAdapter):
-                yield log("❌ Market data is not implemented for the selected provider.")
-                return
         finally:
             db.close()
 

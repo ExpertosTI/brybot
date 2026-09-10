@@ -23,6 +23,7 @@ type Integration = {
   display_name: string;
   provider: string;
   status: string;
+  metadata?: { mode?: string; accountId?: string };
 };
 
 type TradePrompt = {
@@ -147,6 +148,7 @@ function Dashboard() {
   const [backtestStatus, setBacktestStatus] = useState<string>('');
   const [backtestError, setBacktestError] = useState<string>('');
   const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [demoAccount, setDemoAccount] = useState<{ account_id: string; balance: number } | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const stored = localStorage.getItem('theme');
     return stored === 'light' ? 'light' : 'dark';
@@ -210,6 +212,11 @@ function Dashboard() {
       .get('/integrations')
       .then(res => setIntegrations(res.data ?? []))
       .catch(err => console.error('Failed to load integrations', err));
+
+    api
+      .get('/trading/account')
+      .then(res => setDemoAccount(res.data))
+      .catch(err => console.error('Failed to load account', err));
   }, [navigate]);
 
   const contractOptions = useMemo(() => {
@@ -383,7 +390,7 @@ function Dashboard() {
             <p className="eyebrow">TopStep MVP Bot</p>
             <div className="app-title">Trading Orchestrator</div>
           </div>
-          <span className="pill subtle">demo</span>
+          <span className="pill status success">DEMO / PAPER</span>
         </div>
         <div className="topbar-center">
           <span className="badge">{sessionSummary.symbol}</span>
@@ -466,6 +473,11 @@ function Dashboard() {
             {!activeIntegration && (
               <div className="inline-alert warning">
                 No active integration. Go to Integrations to activate one.
+              </div>
+            )}
+            {activeIntegration?.provider === 'DEMO' && demoAccount && (
+              <div className="inline-alert success">
+                {demoAccount.account_id} · ${demoAccount.balance.toLocaleString()} virtual balance
               </div>
             )}
           </div>

@@ -45,7 +45,9 @@ docker network inspect RenaceNet >/dev/null 2>&1 || {
 DISK_USE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK_USE" -gt 85 ]; then
   echo "⚠️  Disk usage at ${DISK_USE}%. Running deep Docker cleanup..."
-  docker builder prune -af --filter "until=24h" 2>/dev/null || true
+  # Stopped Swarm task containers keep old images referenced, so remove them first.
+  docker container prune -f 2>/dev/null || true
+  docker builder prune -af 2>/dev/null || true
   docker image prune -af --filter "until=72h" 2>/dev/null || true
 fi
 
@@ -58,6 +60,8 @@ echo "🚀 Deploying stack '$STACK_NAME'..."
 docker stack deploy --with-registry-auth -c docker-compose.yml "$STACK_NAME"
 
 # 6. Cleanup builder cache
+docker container prune -f 2>/dev/null || true
+docker builder prune -af 2>/dev/null || true
 docker image prune -f 2>/dev/null || true
 
 # 7. Verify health

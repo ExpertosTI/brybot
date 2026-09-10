@@ -27,6 +27,21 @@ class TradingSignal(BaseModel):
     broker_integration_id: Optional[int] = None
     secret: Optional[str] = None
 
+
+@router.get("/account")
+async def get_account(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    integration = resolve_integration(
+        db,
+        current_user.id,
+        required_capabilities={IntegrationCapability.ACCOUNT_INFO},
+    )
+    if not integration:
+        raise HTTPException(status_code=400, detail="No active account integration configured.")
+    return await get_adapter(integration).get_account()
+
 @router.get("/test-trade")
 async def test_trade(
     db: Session = Depends(database.get_db),
