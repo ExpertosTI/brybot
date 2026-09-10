@@ -59,6 +59,10 @@ docker compose build
 echo "🚀 Deploying stack '$STACK_NAME'..."
 docker stack deploy --with-registry-auth -c docker-compose.yml "$STACK_NAME"
 
+# Local latest tags have no registry digest; force fresh tasks to load rebuilt images.
+docker service update --force "${STACK_NAME}_backend" >/dev/null
+docker service update --force "${STACK_NAME}_frontend" >/dev/null
+
 # 6. Cleanup builder cache
 docker container prune -f 2>/dev/null || true
 docker builder prune -af 2>/dev/null || true
