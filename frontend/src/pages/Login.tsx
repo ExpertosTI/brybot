@@ -76,9 +76,9 @@ function Login() {
         </div>
         <div className="login-header">
           <div>
-            <p className="eyebrow">BRYBOT / MARKET LAB</p>
+            <p className="eyebrow">RENACE TRADING LAB</p>
             <h1>Trade with a clearer signal.</h1>
-            <p className="muted">A focused workspace for market structure, RSI strategy and paper execution.</p>
+            <p className="muted">A professional trading workspace with market structure, RSI strategies and real-time execution.</p>
           </div>
           <span className="login-live-dot">Live</span>
         </div>
