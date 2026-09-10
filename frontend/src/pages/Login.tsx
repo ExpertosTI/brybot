@@ -43,6 +43,26 @@ function Login() {
     }
   };
 
+  const handleDemoLogin = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const res = await api.post('/auth/demo-login');
+      const token = res.data?.access_token ?? res.data?.token;
+      if (!token) {
+        setError('Demo login failed: unexpected server response.');
+        return;
+      }
+      localStorage.setItem('token', token);
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      console.error('Demo login failed', err);
+      setError('Demo mode is temporarily unavailable.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="auth-shell">
       <div className="login-panel">
@@ -96,6 +116,9 @@ function Login() {
             {isLoading ? 'Logging in…' : 'Login'}
           </button>
         </form>
+        <button type="button" className="ghost" onClick={handleDemoLogin} disabled={isLoading}>
+          {isLoading ? 'Opening demo…' : 'Enter demo mode'}
+        </button>
         <p className="tiny muted">API: {API_BASE_URL}</p>
         <p className="tiny muted">
           New here? <Link to="/register">Create an account</Link>
