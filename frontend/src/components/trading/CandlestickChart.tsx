@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, HistogramData, LineData } from 'lightweight-charts';
+import {
+  createChart,
+  ColorType,
+  IChartApi,
+  ISeriesApi,
+  CandlestickData,
+  HistogramData,
+  LineData,
+  AreaData,
+} from 'lightweight-charts';
 import { api } from '../../api';
 
 interface CandlestickChartProps {
@@ -8,6 +17,9 @@ interface CandlestickChartProps {
   onPriceUpdate?: (price: number, change: number, high: number, low: number, volume: number) => void;
   markers?: Array<{ time: any; position: 'aboveBar' | 'belowBar'; color: string; shape: 'arrowUp' | 'arrowDown'; text: string }>;
 }
+
+type ChartType = 'candles' | 'area' | 'line';
+type DrawingTool = 'cursor' | 'trendline' | 'horizontal' | 'fib';
 
 const BASE_PRICES: Record<string, number> = {
   NQ: 19750.0,
@@ -28,10 +40,21 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+
+  // Series refs
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const ma20SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const ma50SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+
+  // Interactive controls state
+  const [chartType, setChartType] = useState<ChartType>('candles');
+  const [activeTool, setActiveTool] = useState<DrawingTool>('cursor');
+  const [showMa20, setShowMa20] = useState<boolean>(true);
+  const [showMa50, setShowMa50] = useState<boolean>(true);
+  const [showVolume, setShowVolume] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const [currentOhlc, setCurrentOhlc] = useState<{
     open: number;
@@ -74,7 +97,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     return { candles, volumes };
   }, []);
 
-  // Compute Simple Moving Average
   const computeSma = (data: CandlestickData[], period: number): LineData[] => {
     const result: LineData[] = [];
     for (let i = 0; i < data.length; i++) {
@@ -103,7 +125,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     const chart = createChart(container, {
       width: container.clientWidth,
-      height: 480,
+      height: 500,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#8e9eb5',
@@ -145,11 +167,21 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       borderVisible: false,
       wickUpColor: '#00e68a',
       wickDownColor: '#ff4d6a',
+      visible: chartType === 'candles',
+    });
+
+    const areaSeries = chart.addAreaSeries({
+      topColor: 'rgba(0, 212, 170, 0.45)',
+      bottomColor: 'rgba(0, 212, 170, 0.0)',
+      lineColor: '#00d4aa',
+      lineWidth: 2,
+      visible: chartType === 'area' || chartType === 'line',
     });
 
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
       priceScaleId: '',
+      visible: showVolume,
     });
     volumeSeries.priceScale().applyOptions({
       scaleMargins: { top: 0.82, bottom: 0 },
@@ -160,6 +192,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       lineWidth: 2,
       priceLineVisible: false,
       title: 'EMA 20',
+      visible: showMa20,
     });
 
     const ma50Series = chart.addLineSeries({
@@ -167,10 +200,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       lineWidth: 1.5,
       priceLineVisible: false,
       title: 'EMA 50',
+      visible: showMa50,
     });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
+    areaSeriesRef.current = areaSeries;
     volumeSeriesRef.current = volumeSeries;
     ma20SeriesRef.current = ma20Series;
     ma50SeriesRef.current = ma50Series;
@@ -213,6 +248,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
       if (activeCandles.length > 0) {
         candleSeries.setData(activeCandles);
+        areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
         volumeSeries.setData(activeVolumes);
         ma20Series.setData(computeSma(activeCandles, 20));
         ma50Series.setData(computeSma(activeCandles, 50));
@@ -293,6 +329,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       activeCandles[lastIdx] = last;
 
       candleSeriesRef.current.update(last);
+      if (areaSeriesRef.current) {
+        areaSeriesRef.current.update({ time: last.time, value: newClose });
+      }
 
       if (volumeSeriesRef.current && activeVolumes.length) {
         const lastVol = { ...activeVolumes[lastIdx] };
@@ -331,8 +370,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       chart.remove();
       chartRef.current = null;
     };
-  }, [symbol, resolution, generateSyntheticCandles, onPriceUpdate]);
+  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateSyntheticCandles, onPriceUpdate]);
 
+  // Set markers
   useEffect(() => {
     if (!candleSeriesRef.current || markers.length === 0) return;
     try {
@@ -342,54 +382,171 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     }
   }, [markers]);
 
+  const fitContent = () => {
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent();
+    }
+  };
+
   return (
-    <div className="trading-chart-wrapper">
-      <div className="chart-header-overlay">
-        <div className="chart-title-box">
-          <div className="symbol-badge">
+    <div className={`trading-chart-wrapper ${isFullscreen ? 'fullscreen-mode' : ''}`}>
+      {/* TopStepX Style Chart Control Bar */}
+      <div className="topstep-chart-toolbar">
+        <div className="toolbar-left-group">
+          {/* Symbol & Price badge */}
+          <div className="chart-symbol-pill">
             <span className="live-pulsing-dot" />
-            <span className="symbol-name">{symbol}</span>
-            <span className="symbol-desc">
-              {symbol === 'NQ' ? 'E-MINI NASDAQ-100' : symbol === 'ES' ? 'E-MINI S&P 500' : `${symbol} FUTURES`}
-            </span>
+            <span className="sym-bold">{symbol}</span>
+            <span className="sym-sub">{symbol === 'NQ' ? 'NASDAQ 100' : symbol}</span>
           </div>
+
+          {/* Chart Type Selector */}
+          <div className="chart-type-picker">
+            <button
+              type="button"
+              className={`ct-btn ${chartType === 'candles' ? 'active' : ''}`}
+              onClick={() => setChartType('candles')}
+              title="Velas Japonesas"
+            >
+              🕯 Velas
+            </button>
+            <button
+              type="button"
+              className={`ct-btn ${chartType === 'area' ? 'active' : ''}`}
+              onClick={() => setChartType('area')}
+              title="Área con Gradiente"
+            >
+              📈 Área
+            </button>
+          </div>
+
+          {/* Indicator Toggles */}
+          <div className="chart-indicators-toggles">
+            <button
+              type="button"
+              className={`ind-toggle ${showMa20 ? 'active' : ''}`}
+              onClick={() => setShowMa20(!showMa20)}
+            >
+              EMA 20
+            </button>
+            <button
+              type="button"
+              className={`ind-toggle ${showMa50 ? 'active' : ''}`}
+              onClick={() => setShowMa50(!showMa50)}
+            >
+              EMA 50
+            </button>
+            <button
+              type="button"
+              className={`ind-toggle ${showVolume ? 'active' : ''}`}
+              onClick={() => setShowVolume(!showVolume)}
+            >
+              VOL
+            </button>
+          </div>
+        </div>
+
+        <div className="toolbar-right-group">
           {currentOhlc && (
-            <div className="price-hero">
-              <span className={`price-main ${currentOhlc.change >= 0 ? 'pos' : 'neg'}`}>
-                {currentOhlc.close.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="header-price-display">
+              <span className={`live-price ${currentOhlc.change >= 0 ? 'pos' : 'neg'}`}>
+                ${currentOhlc.close.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className={`price-change-badge ${currentOhlc.change >= 0 ? 'pos' : 'neg'}`}>
+              <span className={`live-badge ${currentOhlc.change >= 0 ? 'pos' : 'neg'}`}>
                 {currentOhlc.change >= 0 ? '+' : ''}{currentOhlc.change}%
               </span>
             </div>
           )}
-        </div>
 
-        {currentOhlc && (
-          <div className="ohlc-legend">
-            <span className="legend-item">O: <strong>{currentOhlc.open.toFixed(2)}</strong></span>
-            <span className="legend-item">H: <strong className="pos">{currentOhlc.high.toFixed(2)}</strong></span>
-            <span className="legend-item">L: <strong className="neg">{currentOhlc.low.toFixed(2)}</strong></span>
-            <span className="legend-item">C: <strong>{currentOhlc.close.toFixed(2)}</strong></span>
-            <span className="legend-item">Vol: <strong>{currentOhlc.volume.toLocaleString()}</strong></span>
-          </div>
-        )}
+          <button
+            type="button"
+            className="chart-action-icon-btn"
+            onClick={fitContent}
+            title="Ajustar Escala"
+          >
+            &#x26F6; Reset Zoom
+          </button>
 
-        <div className="chart-indicators-legend">
-          <span className="indicator-pill ema20">EMA 20</span>
-          <span className="indicator-pill ema50">EMA 50</span>
-          <span className="indicator-pill vol">VOL</span>
+          <button
+            type="button"
+            className="chart-action-icon-btn"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title="Pantalla Completa"
+          >
+            {isFullscreen ? '⤓ Reducir' : '⤢ Expandir'}
+          </button>
         </div>
       </div>
 
-      {isLoading && (
-        <div className="chart-loader">
-          <div className="spinner" />
-          <span>Synchronizing {symbol} tick feed...</span>
+      {/* OHLC Bar Legend */}
+      {currentOhlc && (
+        <div className="chart-ohlc-legend-bar">
+          <span>O: <strong>{currentOhlc.open.toFixed(2)}</strong></span>
+          <span>H: <strong className="pos">{currentOhlc.high.toFixed(2)}</strong></span>
+          <span>L: <strong className="neg">{currentOhlc.low.toFixed(2)}</strong></span>
+          <span>C: <strong>{currentOhlc.close.toFixed(2)}</strong></span>
+          <span>Vol: <strong>{currentOhlc.volume.toLocaleString()}</strong></span>
+          <span className="engine-status-tag">CME DIRECT FEED</span>
         </div>
       )}
 
-      <div ref={chartContainerRef} className="tv-chart-viewport" />
+      {/* Main Chart Body with Left Drawing Toolbar */}
+      <div className="chart-main-body-row">
+        {/* Left Drawing Tools Sidebar (TopStepX style) */}
+        <div className="drawing-tools-sidebar">
+          <button
+            type="button"
+            className={`dt-btn ${activeTool === 'cursor' ? 'active' : ''}`}
+            onClick={() => setActiveTool('cursor')}
+            title="Puntero / Cruz"
+          >
+            &#10010;
+          </button>
+          <button
+            type="button"
+            className={`dt-btn ${activeTool === 'trendline' ? 'active' : ''}`}
+            onClick={() => setActiveTool('trendline')}
+            title="Línea de Tendencia"
+          >
+            &#9585;
+          </button>
+          <button
+            type="button"
+            className={`dt-btn ${activeTool === 'horizontal' ? 'active' : ''}`}
+            onClick={() => setActiveTool('horizontal')}
+            title="Soporte / Resistencia Horizontal"
+          >
+            &#8213;
+          </button>
+          <button
+            type="button"
+            className={`dt-btn ${activeTool === 'fib' ? 'active' : ''}`}
+            onClick={() => setActiveTool('fib')}
+            title="Retroceso de Fibonacci"
+          >
+            &#8801;
+          </button>
+          <button
+            type="button"
+            className="dt-btn clear"
+            onClick={fitContent}
+            title="Limpiar Herramientas"
+          >
+            &#128465;
+          </button>
+        </div>
+
+        {/* Viewport container */}
+        <div className="chart-viewport-wrapper">
+          {isLoading && (
+            <div className="chart-loader">
+              <div className="spinner" />
+              <span>Sincronizando feed institucional de {symbol}...</span>
+            </div>
+          )}
+          <div ref={chartContainerRef} className="tv-chart-viewport" />
+        </div>
+      </div>
     </div>
   );
 };

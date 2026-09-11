@@ -1,18 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { MarketTickerMarquee } from '../components/layout/MarketTickerMarquee';
 import { TopBar } from '../components/layout/TopBar';
 import { AccountMetricsBar } from '../components/trading/AccountMetricsBar';
 import { CandlestickChart } from '../components/trading/CandlestickChart';
 import { TradingExecutionPanel, Position, TradeHistoryItem } from '../components/trading/TradingExecutionPanel';
+import { DepthOfMarketLadder } from '../components/trading/DepthOfMarketLadder';
+import { TopCopilotAdvisor } from '../components/trading/TopCopilotAdvisor';
 import { MarketStructureCard } from '../components/analytics/MarketStructureCard';
 import { BacktestCard } from '../components/analytics/BacktestCard';
+import { MarketNewsSentiment } from '../components/analytics/MarketNewsSentiment';
 import { ActivityFeed, ActivityEvent } from '../components/common/ActivityFeed';
+import { soundEffects } from '../utils/audioEffects';
 
 export function Dashboard() {
   const navigate = useNavigate();
 
-  // Primary state: Default to NASDAQ (NQ) as requested!
+  // Primary state: Default to NASDAQ (NQ)
   const [symbol, setSymbol] = useState<string>('NQ');
   const [resolution, setResolution] = useState<string>('1');
   const [currentPrice, setCurrentPrice] = useState<number>(19750.0);
@@ -33,19 +38,19 @@ export function Dashboard() {
       id: '1',
       time: new Date().toLocaleTimeString(),
       type: 'info',
-      message: 'RENACE Institutional Trading Lab initialized. Connected to CME NASDAQ feed.',
+      message: 'RENACE Institutional Trading Lab 2030 conectado al flujo de datos CME NASDAQ.',
     },
     {
       id: '2',
       time: new Date().toLocaleTimeString(),
       type: 'structure',
-      message: 'ICT Matrix: Bullish Fair Value Gap (FVG) identified at 19,732.50.',
+      message: 'ICT Matrix: Fair Value Gap (FVG) alcista validado en 19,735.00 con alta probabilidad.',
     },
     {
       id: '3',
       time: new Date().toLocaleTimeString(),
       type: 'alert',
-      message: 'RSI Algorithm: Scanning NQ momentum cycles with 20/40 tick risk bracket.',
+      message: 'TopStep Sentinel: Parámetros de gestión de riesgo activos. Límite diario de pérdida: $2,000.',
     },
   ]);
 
@@ -62,7 +67,6 @@ export function Dashboard() {
         if (res.data) setUser(res.data);
       })
       .catch(() => {
-        // demo fallback
         setUser({ username: 'demo_trader' });
       });
   }, [navigate]);
@@ -85,14 +89,14 @@ export function Dashboard() {
     );
   }, []);
 
-  // Compute total unrealized PnL
   const totalUnrealizedPnl = positions.reduce((acc, pos) => acc + pos.unrealizedPnl, 0);
+  const netDailyPnl = realizedPnl + totalUnrealizedPnl;
 
   // Handle Order Executed
   const handleOrderExecuted = (newPos: Position) => {
     setPositions((prev) => [...prev, newPos]);
+    soundEffects.playOrderPlaced();
 
-    // Add marker to chart
     const nowTs = Math.floor(Date.now() / 1000);
     setChartMarkers((prev) => [
       ...prev,
@@ -105,16 +109,30 @@ export function Dashboard() {
       },
     ]);
 
-    // Add activity event
     setEvents((prev) => [
       ...prev,
       {
         id: String(Date.now()),
         time: new Date().toLocaleTimeString(),
         type: 'trade',
-        message: `Order Executed: ${newPos.side} ${newPos.quantity} ${newPos.symbol} at ${newPos.entryPrice.toFixed(2)}`,
+        message: `Orden Ejecutada: ${newPos.side} ${newPos.quantity} ${newPos.symbol} @ ${newPos.entryPrice.toFixed(2)}`,
       },
     ]);
+  };
+
+  // Quick order from DOM ladder
+  const handleQuickDomOrder = (side: 'BUY' | 'SELL', price: number) => {
+    const newPos: Position = {
+      id: `POS-${Date.now()}`,
+      symbol,
+      side,
+      quantity: 1,
+      entryPrice: price,
+      currentPrice: price,
+      unrealizedPnl: 0,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+    handleOrderExecuted(newPos);
   };
 
   // Handle Position Closed
@@ -124,6 +142,12 @@ export function Dashboard() {
 
     setPositions((prev) => prev.filter((p) => p.id !== positionId));
     setRealizedPnl((prev) => Math.round((prev + pnl) * 100) / 100);
+
+    if (pnl >= 0) {
+      soundEffects.playTakeProfit();
+    } else {
+      soundEffects.playStopLoss();
+    }
 
     const closedItem: TradeHistoryItem = {
       id: `TR-${Date.now()}`,
@@ -144,18 +168,17 @@ export function Dashboard() {
         id: String(Date.now()),
         time: new Date().toLocaleTimeString(),
         type: 'trade',
-        message: `Position Closed: ${pos.side} ${pos.symbol} for ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`,
+        message: `Posición Liquidada: ${pos.side} ${pos.symbol} con resultado de ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`,
       },
     ]);
   };
 
-  // Bot algorithmic signals simulator
+  // Bot algorithmic signals
   useEffect(() => {
     if (!isBotRunning) return;
 
     const botInterval = setInterval(() => {
-      // 20% chance every 15s of algorithmic signal
-      if (Math.random() < 0.25) {
+      if (Math.random() < 0.28) {
         const sides: ('BUY' | 'SELL')[] = ['BUY', 'SELL'];
         const randomSide = sides[Math.floor(Math.random() * sides.length)];
         setEvents((prev) => [
@@ -164,17 +187,20 @@ export function Dashboard() {
             id: String(Date.now()),
             time: new Date().toLocaleTimeString(),
             type: 'structure',
-            message: `Algorithmic Alert: ${randomSide} trigger criteria met on ${symbol} (RSI exhaustion + liquidity sweep).`,
+            message: `Alerta Algorítmica: Condición de ${randomSide} confirmada en ${symbol} (Mitigación FVG + Volumen institucional).`,
           },
         ]);
       }
-    }, 15000);
+    }, 18000);
 
     return () => clearInterval(botInterval);
   }, [isBotRunning, symbol]);
 
   return (
     <div className="lab-dashboard-shell">
+      {/* 0. Live Global Market Marquee */}
+      <MarketTickerMarquee />
+
       {/* 1. Institutional Top Navigation */}
       <TopBar
         symbol={symbol}
@@ -198,9 +224,9 @@ export function Dashboard() {
 
       {/* 3. Main Trading Workspace Layout */}
       <main className="trading-workspace-grid">
-        {/* Left Column: Primary Chart & Quantitative Analytics */}
+        {/* Left Column: Primary Chart, Copilot Advisor & Quantitative Analytics */}
         <section className="workspace-main-column">
-          {/* Real Candlestick Chart */}
+          {/* Real Interactive TopStep Candlestick Chart */}
           <CandlestickChart
             symbol={symbol}
             resolution={resolution}
@@ -208,15 +234,29 @@ export function Dashboard() {
             markers={chartMarkers}
           />
 
+          {/* AI Trading Copilot / TopStep Coach */}
+          <TopCopilotAdvisor
+            symbol={symbol}
+            currentPrice={currentPrice}
+            netDailyPnl={netDailyPnl}
+            onApplyRecommendation={(side) => {
+              handleQuickDomOrder(side, currentPrice);
+            }}
+          />
+
           {/* Analytics Dual Grid */}
           <div className="analytics-dual-grid">
             <MarketStructureCard symbol={symbol} resolution={resolution} />
             <BacktestCard symbol={symbol} resolution={resolution} />
           </div>
+
+          {/* Realtime Macro News & Global Sentiment */}
+          <MarketNewsSentiment />
         </section>
 
-        {/* Right Column: Active Order Panel & Telemetry Stream */}
+        {/* Right Column: Order Execution, DOM Ladder & Telemetry Feed */}
         <aside className="workspace-sidebar-column">
+          {/* Active 1-Click Order Execution Panel */}
           <TradingExecutionPanel
             symbol={symbol}
             currentPrice={currentPrice}
@@ -227,6 +267,14 @@ export function Dashboard() {
             onPositionClosed={handlePositionClosed}
           />
 
+          {/* TopStepX Level 2 Depth of Market (DOM) Ladder */}
+          <DepthOfMarketLadder
+            symbol={symbol}
+            currentPrice={currentPrice}
+            onQuickOrder={handleQuickDomOrder}
+          />
+
+          {/* Live Activity & Telemetry Feed */}
           <ActivityFeed
             events={events}
             onClear={() => setEvents([])}
