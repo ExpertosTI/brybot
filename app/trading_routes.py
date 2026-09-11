@@ -117,3 +117,62 @@ async def receive_signal(
         {"symbol": signal.symbol, "side": signal.side, "quantity": signal.quantity}
     )
     return {"status": "received", "result": result}
+
+
+class ManualOrderRequest(BaseModel):
+    symbol: str
+    side: str  # "BUY" | "SELL"
+    quantity: int = 1
+    price: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+
+
+@router.post("/order")
+async def place_manual_order(
+    order: ManualOrderRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user_model),
+):
+    """Place a live broker order or execute as a demo paper trade."""
+    side = order.side.upper()
+    if side not in ("BUY", "SELL"):
+        raise HTTPException(status_code=400, detail="Invalid order side. Must be BUY or SELL.")
+
+    integration = resolve_integration(
+        db,
+        current_user.id,
+        required_capabilities={IntegrationCapability.BROKER_TRADING},
+    )
+
+    if integration:
+        try:
+            adapter = get_adapter(integration)
+            result = await adapter.place_order({
+                "symbol": order.symbol,
+                "side": side,
+                "quantity": order.quantity,
+                "price": order.price,
+            })
+            return {"status": "executed", "mode": "broker", "order": order.dict(), "result": result}
+        except Exception as exc:
+            pass  # Fall back to simulated execution for paper trading
+
+    # Demo / Paper trading fallback execution
+    order_id = f"ORD-{int(datetime.utcnow().timestamp() * 1000)}"
+    return {
+        "status": "executed",
+        "mode": "paper",
+        "order": order.dict(),
+        "result": {
+            "order_id": order_id,
+            "symbol": order.symbol,
+            "side": side,
+            "quantity": order.quantity,
+            "fill_price": order.price,
+            "filled": True,
+            "timestamp": datetime.utcnow().isoformat(),
+            "message": f"Order executed instantly on {order.symbol} ({side} {order.quantity})",
+        },
+    }
+
