@@ -218,6 +218,9 @@ export function Dashboard() {
     return () => clearInterval(botInterval);
   }, [isBotRunning, symbol]);
 
+  // Mobile tab switcher state ('chart' | 'gemini' | 'execute' | 'analytics' | 'all')
+  const [mobileTab, setMobileTab] = useState<'chart' | 'gemini' | 'execute' | 'analytics' | 'all'>('chart');
+
   return (
     <div className="lab-dashboard-shell">
       {/* 0. Live Global Market Marquee */}
@@ -244,72 +247,136 @@ export function Dashboard() {
         onToggleBot={() => setIsBotRunning(!isBotRunning)}
       />
 
+      {/* Mobile Mode Switcher Bar (Visible on mobile/tablet screens <= 900px) */}
+      <div className="mobile-view-selector-bar">
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'chart' ? 'active' : ''}`}
+          onClick={() => setMobileTab('chart')}
+        >
+          <span>📊 Gráfica</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'gemini' ? 'active' : ''}`}
+          onClick={() => setMobileTab('gemini')}
+        >
+          <span>🧠 Gemini AI</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'execute' ? 'active' : ''}`}
+          onClick={() => setMobileTab('execute')}
+        >
+          <span>⚡ Operar & DOM</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'analytics' ? 'active' : ''}`}
+          onClick={() => setMobileTab('analytics')}
+        >
+          <span>📈 Análisis</span>
+        </button>
+        <button
+          type="button"
+          className={`mobile-tab-btn ${mobileTab === 'all' ? 'active' : ''}`}
+          onClick={() => setMobileTab('all')}
+        >
+          <span>📜 Todo</span>
+        </button>
+      </div>
+
       {/* 3. Main Trading Workspace Layout */}
-      <main className="trading-workspace-grid">
+      <main className={`trading-workspace-grid mobile-active-tab-${mobileTab}`}>
         {/* Left Column: Primary Chart, Gemini Advisor, Copilot & Analytics */}
         <section className="workspace-main-column">
-          {/* Real Interactive TopStep Candlestick Chart */}
-          <CandlestickChart
-            symbol={symbol}
-            resolution={resolution}
-            onPriceUpdate={handlePriceUpdate}
-            markers={chartMarkers}
-          />
+          {/* Chart Section */}
+          <div className={`tab-panel-section panel-chart ${mobileTab === 'chart' || mobileTab === 'all' ? 'active-panel' : ''}`}>
+            <CandlestickChart
+              symbol={symbol}
+              resolution={resolution}
+              onPriceUpdate={handlePriceUpdate}
+              markers={chartMarkers}
+            />
 
-          {/* Google Gemini 2.0 AI Cognitive Quant Advisor & WhatsApp Dispatch */}
-          <GeminiAdvisorCard
-            symbol={symbol}
-            currentPrice={currentPrice}
-            onApplyTrade={(side) => {
-              handleQuickDomOrder(side, currentPrice);
-            }}
-          />
-
-          {/* TopStep Rules & Technical Coach */}
-          <TopCopilotAdvisor
-            symbol={symbol}
-            currentPrice={currentPrice}
-            netDailyPnl={netDailyPnl}
-            onApplyRecommendation={(side) => {
-              handleQuickDomOrder(side, currentPrice);
-            }}
-          />
-
-          {/* Analytics Dual Grid */}
-          <div className="analytics-dual-grid">
-            <MarketStructureCard symbol={symbol} resolution={resolution} />
-            <BacktestCard symbol={symbol} resolution={resolution} />
+            {/* Mobile Quick Trade Bar */}
+            <div className="mobile-chart-quick-trade-bar">
+              <button
+                type="button"
+                className="mobile-quick-btn buy"
+                onClick={() => handleQuickDomOrder('BUY', currentPrice)}
+              >
+                <span>COMPRAR 1 {symbol}</span>
+                <strong>${currentPrice > 0 ? currentPrice.toFixed(2) : '19,754.50'}</strong>
+              </button>
+              <button
+                type="button"
+                className="mobile-quick-btn sell"
+                onClick={() => handleQuickDomOrder('SELL', currentPrice)}
+              >
+                <span>VENDER 1 {symbol}</span>
+                <strong>${currentPrice > 0 ? currentPrice.toFixed(2) : '19,754.50'}</strong>
+              </button>
+            </div>
           </div>
 
-          {/* Realtime Macro News & Global Sentiment */}
-          <MarketNewsSentiment />
+          {/* Gemini AI Quant Advisor Section */}
+          <div className={`tab-panel-section panel-gemini ${mobileTab === 'gemini' || mobileTab === 'all' ? 'active-panel' : ''}`}>
+            <GeminiAdvisorCard
+              symbol={symbol}
+              currentPrice={currentPrice}
+              onApplyTrade={(side) => {
+                handleQuickDomOrder(side, currentPrice);
+              }}
+            />
+          </div>
+
+          {/* Analytics & Rules Section */}
+          <div className={`tab-panel-section panel-analytics ${mobileTab === 'analytics' || mobileTab === 'all' ? 'active-panel' : ''}`}>
+            <TopCopilotAdvisor
+              symbol={symbol}
+              currentPrice={currentPrice}
+              netDailyPnl={netDailyPnl}
+              onApplyRecommendation={(side) => {
+                handleQuickDomOrder(side, currentPrice);
+              }}
+            />
+
+            <div className="analytics-dual-grid">
+              <MarketStructureCard symbol={symbol} resolution={resolution} />
+              <BacktestCard symbol={symbol} resolution={resolution} />
+            </div>
+
+            <MarketNewsSentiment />
+          </div>
         </section>
 
         {/* Right Column: Order Execution, DOM Ladder & Telemetry Feed */}
         <aside className="workspace-sidebar-column">
-          {/* Active 1-Click Order Execution Panel */}
-          <TradingExecutionPanel
-            symbol={symbol}
-            currentPrice={currentPrice}
-            balance={balance}
-            positions={positions}
-            tradeHistory={tradeHistory}
-            onOrderExecuted={handleOrderExecuted}
-            onPositionClosed={handlePositionClosed}
-          />
+          <div className={`tab-panel-section panel-execute ${mobileTab === 'execute' || mobileTab === 'all' ? 'active-panel' : ''}`}>
+            <TradingExecutionPanel
+              symbol={symbol}
+              currentPrice={currentPrice}
+              balance={balance}
+              positions={positions}
+              tradeHistory={tradeHistory}
+              onOrderExecuted={handleOrderExecuted}
+              onPositionClosed={handlePositionClosed}
+            />
 
-          {/* TopStepX Level 2 Depth of Market (DOM) Ladder */}
-          <DepthOfMarketLadder
-            symbol={symbol}
-            currentPrice={currentPrice}
-            onQuickOrder={handleQuickDomOrder}
-          />
+            <DepthOfMarketLadder
+              symbol={symbol}
+              currentPrice={currentPrice}
+              onQuickOrder={handleQuickDomOrder}
+            />
+          </div>
 
-          {/* Live Activity & Telemetry Feed */}
-          <ActivityFeed
-            events={events}
-            onClear={() => setEvents([])}
-          />
+          <div className={`tab-panel-section panel-feed ${mobileTab === 'analytics' || mobileTab === 'all' ? 'active-panel' : ''}`}>
+            <ActivityFeed
+              events={events}
+              onClear={() => setEvents([])}
+            />
+          </div>
         </aside>
       </main>
     </div>
