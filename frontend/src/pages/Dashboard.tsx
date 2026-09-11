@@ -8,6 +8,7 @@ import { CandlestickChart } from '../components/trading/CandlestickChart';
 import { TradingExecutionPanel, Position, TradeHistoryItem } from '../components/trading/TradingExecutionPanel';
 import { DepthOfMarketLadder } from '../components/trading/DepthOfMarketLadder';
 import { TopCopilotAdvisor } from '../components/trading/TopCopilotAdvisor';
+import { GeminiAdvisorCard } from '../components/trading/GeminiAdvisorCard';
 import { MarketStructureCard } from '../components/analytics/MarketStructureCard';
 import { BacktestCard } from '../components/analytics/BacktestCard';
 import { MarketNewsSentiment } from '../components/analytics/MarketNewsSentiment';
@@ -44,13 +45,13 @@ export function Dashboard() {
       id: '2',
       time: new Date().toLocaleTimeString(),
       type: 'structure',
-      message: 'ICT Matrix: Fair Value Gap (FVG) alcista validado en 19,735.00 con alta probabilidad.',
+      message: 'Google Gemini 2.0 AI Quant Engine conectado y monitoreando estructura ICT.',
     },
     {
       id: '3',
       time: new Date().toLocaleTimeString(),
       type: 'alert',
-      message: 'TopStep Sentinel: Parámetros de gestión de riesgo activos. Límite diario de pérdida: $2,000.',
+      message: 'Evolution API activo: Canal de WhatsApp configurado para señales y alertas de tope TopStep.',
     },
   ]);
 
@@ -92,6 +93,27 @@ export function Dashboard() {
   const totalUnrealizedPnl = positions.reduce((acc, pos) => acc + pos.unrealizedPnl, 0);
   const netDailyPnl = realizedPnl + totalUnrealizedPnl;
 
+  // Evolution API Sentinel: Alert if daily loss limit hit ("llegó al tope")
+  useEffect(() => {
+    if (netDailyPnl <= -2000) {
+      api.post('/analysis/whatsapp-notify', {
+        type: 'risk_limit',
+        current_loss: Math.abs(netDailyPnl),
+        max_loss: 2000,
+      }).catch(() => null);
+
+      setEvents((prev) => [
+        ...prev,
+        {
+          id: String(Date.now()),
+          time: new Date().toLocaleTimeString(),
+          type: 'alert',
+          message: '🚨 LLEGÓ AL TOPE: Límite diario de pérdida alcanzado (-$2,000). Notificación enviada a WhatsApp vía Evolution API.',
+        },
+      ]);
+    }
+  }, [netDailyPnl]);
+
   // Handle Order Executed
   const handleOrderExecuted = (newPos: Position) => {
     setPositions((prev) => [...prev, newPos]);
@@ -120,7 +142,7 @@ export function Dashboard() {
     ]);
   };
 
-  // Quick order from DOM ladder
+  // Quick order from DOM ladder or AI suggestion
   const handleQuickDomOrder = (side: 'BUY' | 'SELL', price: number) => {
     const newPos: Position = {
       id: `POS-${Date.now()}`,
@@ -224,7 +246,7 @@ export function Dashboard() {
 
       {/* 3. Main Trading Workspace Layout */}
       <main className="trading-workspace-grid">
-        {/* Left Column: Primary Chart, Copilot Advisor & Quantitative Analytics */}
+        {/* Left Column: Primary Chart, Gemini Advisor, Copilot & Analytics */}
         <section className="workspace-main-column">
           {/* Real Interactive TopStep Candlestick Chart */}
           <CandlestickChart
@@ -234,7 +256,16 @@ export function Dashboard() {
             markers={chartMarkers}
           />
 
-          {/* AI Trading Copilot / TopStep Coach */}
+          {/* Google Gemini 2.0 AI Cognitive Quant Advisor & WhatsApp Dispatch */}
+          <GeminiAdvisorCard
+            symbol={symbol}
+            currentPrice={currentPrice}
+            onApplyTrade={(side) => {
+              handleQuickDomOrder(side, currentPrice);
+            }}
+          />
+
+          {/* TopStep Rules & Technical Coach */}
           <TopCopilotAdvisor
             symbol={symbol}
             currentPrice={currentPrice}

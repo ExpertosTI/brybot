@@ -106,3 +106,74 @@ def backtest(request: BacktestRequest) -> Dict[str, Any]:
     except Exception as exc:  # noqa: BLE001 - surfaced as API error
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
+class GeminiAdvisorRequest(BaseModel):
+    symbol: str = "NQ"
+    current_price: float = 19750.0
+    rsi: float = 48.5
+    ma_fast: float = 19745.0
+    ma_slow: float = 19730.0
+    structure: Optional[Dict[str, Any]] = None
+
+
+@router.post("/gemini-advisor")
+def gemini_advisor_endpoint(request: GeminiAdvisorRequest) -> Dict[str, Any]:
+    """Provides real-time cognitive trading advice powered by Google Gemini AI."""
+    from app.gemini_advisor import generate_gemini_trade_advice
+
+    try:
+        return generate_gemini_trade_advice(
+            symbol=request.symbol,
+            current_price=request.current_price,
+            rsi=request.rsi,
+            ma_fast=request.ma_fast,
+            ma_slow=request.ma_slow,
+            structure=request.structure,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+class WhatsAppNotifyRequest(BaseModel):
+    type: str = "signal"  # "signal" | "risk_limit" | "test"
+    symbol: str = "NQ"
+    side: str = "BUY"
+    entry: float = 19750.0
+    stop_loss: float = 19730.0
+    take_profit: float = 19790.0
+    reason: str = "Mitigación de FVG + Divergencia de RSI"
+    current_loss: float = 0.0
+    max_loss: float = 2000.0
+    recipient: Optional[str] = None
+
+
+@router.post("/whatsapp-notify")
+def whatsapp_notify_endpoint(request: WhatsAppNotifyRequest) -> Dict[str, Any]:
+    """Dispatches trade signals or risk alerts to WhatsApp via Evolution API."""
+    from app.evolution_notifier import notify_risk_limit_hit, notify_trade_signal, send_whatsapp_message
+
+    if request.type == "risk_limit":
+        return notify_risk_limit_hit(
+            current_loss=request.current_loss,
+            max_loss=request.max_loss,
+            recipient=request.recipient,
+        )
+    elif request.type == "test":
+        msg = (
+            "🚀 *RENACE TRADING LAB | CONEXIÓN EVOLUTION API EXITOSA*\n\n"
+            "✅ Notificaciones activas para señales cuantitativas de Google Gemini y alertas de riesgo TopStep.\n"
+            "📱 Tu canal directo con el mercado financiero en tiempo real."
+        )
+        return send_whatsapp_message(msg, recipient=request.recipient)
+    else:
+        return notify_trade_signal(
+            symbol=request.symbol,
+            side=request.side,
+            entry=request.entry,
+            stop_loss=request.stop_loss,
+            take_profit=request.take_profit,
+            reason=request.reason,
+            recipient=request.recipient,
+        )
+
+
