@@ -137,6 +137,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     return result;
   };
 
+  // 1. Chart Creation Lifecycle (Runs on mount / container resize)
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -235,30 +236,107 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     ma20SeriesRef.current = ma20Series;
     ma50SeriesRef.current = ma50Series;
 
-    let activeCandles: CandlestickData[] = [];
-    let activeVolumes: HistogramData[] = [];
+    // Crosshair move handler
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.seriesData.get(candleSeries)) {
+        return;
+      }
+      const bar = param.seriesData.get(candleSeries) as CandlestickData;
+      const volBar = param.seriesData.get(volumeSeries) as HistogramData;
+      if (bar) {
+        const change = Math.round(((bar.close - bar.open) / bar.open) * 10000) / 100;
+        setCurrentOhlc({
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: (volBar?.value as number) || 0,
+          change,
+        });
+      }
+    });
 
-    // Initialize with quick fallback while real candles load
-    const initialFallback = generateInitialFallback(symbol, resolution);
-    activeCandles = initialFallback.candles;
-    activeVolumes = initialFallback.volumes;
-    candleSeries.setData(activeCandles);
-    areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
-    volumeSeries.setData(activeVolumes);
-    ma20Series.setData(computeSma(activeCandles, 20));
-    ma50Series.setData(computeSma(activeCandles, 50));
-    chart.timeScale().fitContent();
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (entries.length === 0 || !entries[0].contentRect) return;
+      const { width } = entries[0].contentRect;
+      chart.applyOptions({ width });
+    });
+    resizeObserver.observe(container);
 
-    const symUpper = symbol.toUpperCase().trim();
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      areaSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      ma20SeriesRef.current = null;
+      ma50SeriesRef.current = null;
+    };
+  }, [height, compact]);
+
+  // 2. Dynamic Visibility & Type updates without recreating chart
+  useEffect(() => {
+    if (candleSeriesRef.current) {
+      candleSeriesRef.current.applyOptions({ visible: chartType === 'candles' });
+    }
+    if (areaSeriesRef.current) {
+      areaSeriesRef.current.applyOptions({ visible: chartType === 'area' || chartType === 'line' });
+    }
+    if (volumeSeriesRef.current) {
+      volumeSeriesRef.current.applyOptions({ visible: showVolume });
+    }
+    if (ma20SeriesRef.current) {
+      ma20SeriesRef.current.applyOptions({ visible: showMa20 });
+    }
+    if (ma50SeriesRef.current) {
+      ma50SeriesRef.current.applyOptions({ visible: showMa50 });
+    }
+  }, [chartType, showMa20, showMa50, showVolume]);
+
+  // 3. Symbol & Resolution Data Management
+  useEffect(() => {
+    const symUpper = (symbol || 'NQ').toUpperCase().trim();
     const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA'].includes(symUpper);
 
-    // Fetch REAL historical candles from backend (Yahoo / Binance / Topstep)
+    let activeCandles: CandlestickData[] = [];
+    let activeVolumes: HistogramData[] = [];
+    let isCancelled = false;
+    let ws: WebSocket | null = null;
+    let pollInterval: any = null;
+
+    // Load initial fallback while fetching
+    const initialFallback = generateInitialFallback(symUpper, resolution);
+    activeCandles = initialFallback.candles;
+    activeVolumes = initialFallback.volumes;
+
+    if (candleSeriesRef.current) {
+      candleSeriesRef.current.setData(activeCandles);
+    }
+    if (areaSeriesRef.current) {
+      areaSeriesRef.current.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
+    }
+    if (volumeSeriesRef.current) {
+      volumeSeriesRef.current.setData(activeVolumes);
+    }
+    if (ma20SeriesRef.current) {
+      ma20SeriesRef.current.setData(computeSma(activeCandles, 20));
+    }
+    if (ma50SeriesRef.current) {
+      ma50SeriesRef.current.setData(computeSma(activeCandles, 50));
+    }
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent();
+    }
+
     const fetchRealCandles = async () => {
       try {
         const res = await api.get('/analysis/candles', {
           params: { symbol: symUpper, resolution, count: 180 },
           timeout: 4000,
         });
+
+        if (isCancelled) return;
 
         if (res.data?.candles && res.data.candles.length > 0) {
           activeCandles = res.data.candles.map((c: any) => ({
@@ -274,12 +352,24 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             color: c.close >= c.open ? 'rgba(0, 229, 153, 0.35)' : 'rgba(255, 77, 106, 0.35)',
           }));
 
-          candleSeries.setData(activeCandles);
-          areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
-          volumeSeries.setData(activeVolumes);
-          ma20Series.setData(computeSma(activeCandles, 20));
-          ma50Series.setData(computeSma(activeCandles, 50));
-          chart.timeScale().fitContent();
+          if (candleSeriesRef.current) {
+            candleSeriesRef.current.setData(activeCandles);
+          }
+          if (areaSeriesRef.current) {
+            areaSeriesRef.current.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
+          }
+          if (volumeSeriesRef.current) {
+            volumeSeriesRef.current.setData(activeVolumes);
+          }
+          if (ma20SeriesRef.current) {
+            ma20SeriesRef.current.setData(computeSma(activeCandles, 20));
+          }
+          if (ma50SeriesRef.current) {
+            ma50SeriesRef.current.setData(computeSma(activeCandles, 50));
+          }
+          if (chartRef.current) {
+            chartRef.current.timeScale().fitContent();
+          }
 
           const lastBar = activeCandles[activeCandles.length - 1];
           const firstBar = activeCandles[0];
@@ -302,57 +392,20 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           }
         }
       } catch {
-        // Keeps fallback if network error
+        // Fallback remains active
       }
     };
 
     fetchRealCandles();
 
-    // Crosshair subscription for OHLC legend
-    chart.subscribeCrosshairMove((param) => {
-      if (!param.time || !param.seriesData.get(candleSeries)) {
-        if (activeCandles.length > 0) {
-          const last = activeCandles[activeCandles.length - 1];
-          const first = activeCandles[0];
-          const change = Math.round(((last.close - first.open) / first.open) * 10000) / 100;
-          setCurrentOhlc({
-            open: last.open,
-            high: last.high,
-            low: last.low,
-            close: last.close,
-            volume: (activeVolumes[activeVolumes.length - 1]?.value as number) || 0,
-            change,
-          });
-        }
-        return;
-      }
-
-      const bar = param.seriesData.get(candleSeries) as CandlestickData;
-      const volBar = param.seriesData.get(volumeSeries) as HistogramData;
-      if (bar) {
-        const change = Math.round(((bar.close - bar.open) / bar.open) * 10000) / 100;
-        setCurrentOhlc({
-          open: bar.open,
-          high: bar.high,
-          low: bar.low,
-          close: bar.close,
-          volume: (volBar?.value as number) || 0,
-          change,
-        });
-      }
-    });
-
-    let ws: WebSocket | null = null;
-    let pollInterval: any = null;
-
     if (isCrypto) {
-      // Connect to Binance Public WebSocket for real-time crypto ticks
       try {
         const binancePair = `${symUpper.toLowerCase()}usdt`;
         const binanceInterval = resolution === 'D' ? '1d' : `${resolution}m`;
         ws = new WebSocket(`wss://stream.binance.com:9443/ws/${binancePair}@kline_${binanceInterval}`);
 
         ws.onmessage = (event) => {
+          if (isCancelled) return;
           try {
             const msg = JSON.parse(event.data);
             if (msg.k) {
@@ -397,20 +450,22 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               }
             }
           } catch {
-            // ignore malformed ws messages
+            // ignore
           }
         };
       } catch (err) {
         console.warn('Binance WS error:', err);
       }
     } else {
-      // For Futures / Stocks (NQ, ES, YM, GC, CL): Poll real CME quotes every 2.5 seconds
       pollInterval = setInterval(async () => {
+        if (isCancelled) return;
         try {
           const res = await api.get('/analysis/live-quote', {
             params: { symbol: symUpper },
             timeout: 2000,
           });
+
+          if (isCancelled) return;
 
           if (res.data?.price && res.data.price > 0 && activeCandles.length > 0) {
             const realPrice = res.data.price;
@@ -446,31 +501,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             }
           }
         } catch {
-          // ignore transient poll error
+          // ignore
         }
       }, 2500);
     }
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (entries.length === 0 || !entries[0].contentRect) return;
-      const { width } = entries[0].contentRect;
-      chart.applyOptions({ width });
-    });
-    resizeObserver.observe(container);
-
     return () => {
-      if (ws) {
-        ws.close();
-      }
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-      resizeObserver.disconnect();
-      chart.remove();
-      chartRef.current = null;
+      isCancelled = true;
+      if (ws) ws.close();
+      if (pollInterval) clearInterval(pollInterval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateInitialFallback, height, compact]);
+  }, [symbol, resolution, generateInitialFallback, onPriceUpdate]);
 
   // Set markers
   useEffect(() => {

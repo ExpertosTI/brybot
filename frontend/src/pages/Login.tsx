@@ -241,9 +241,18 @@ export function Login() {
     setError(null);
     setIsLoading(true);
 
+    const cleanUsername = form.username.trim();
+    const cleanPassword = form.password;
+
+    if (!cleanUsername || !cleanPassword) {
+      setError('Por favor complete ambos campos.');
+      setIsLoading(false);
+      return;
+    }
+
     const body = new URLSearchParams();
-    body.append('username', form.username);
-    body.append('password', form.password);
+    body.append('username', cleanUsername);
+    body.append('password', cleanPassword);
     body.append('grant_type', 'password');
 
     try {
@@ -253,7 +262,7 @@ export function Login() {
       });
       const token = res.data?.access_token ?? res.data?.token;
       if (!token) {
-        setError('Login fallido: respuesta inesperada del servidor.');
+        setError('Login fallido: no se recibió token de acceso.');
         setIsLoading(false);
         return;
       }
@@ -261,7 +270,7 @@ export function Login() {
       navigate('/dashboard', { replace: true });
     } catch (err) {
       const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
-      setError(detail || 'Credenciales inválidas. Por favor intenta de nuevo.');
+      setError(detail || 'Credenciales incorrectas. Verifique usuario/correo y contraseña.');
     } finally {
       setIsLoading(false);
     }
@@ -582,13 +591,13 @@ export function Login() {
 
               <form onSubmit={handleSubmit} className="portal-form">
                 <div className="form-field-wrap">
-                  <label htmlFor="username">Usuario</label>
+                  <label htmlFor="username">Usuario o Correo Electrónico</label>
                   <input
                     id="username"
                     type="text"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
-                    placeholder="Ingresa tu usuario"
+                    placeholder="admin o expertostird@gmail.com"
                     autoComplete="username"
                     required
                     disabled={isLoading || isTransitioning}
@@ -602,7 +611,7 @@ export function Login() {
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    placeholder="Ingresa tu contraseña"
+                    placeholder="Tu contraseña (ej: Trading2027@)"
                     autoComplete="current-password"
                     required
                     disabled={isLoading || isTransitioning}
@@ -614,7 +623,7 @@ export function Login() {
                   className="portal-submit-btn"
                   disabled={isLoading || isTransitioning}
                 >
-                  {isLoading ? 'Autenticando...' : 'Entrar a la Estación'}
+                  {isLoading ? 'Autenticando...' : '🔑 Entrar a la Estación'}
                 </button>
               </form>
 

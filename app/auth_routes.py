@@ -21,14 +21,22 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+    if not username:
+        return None
+    cleaned = username.strip()
+    return db.query(models.User).filter(
+        (models.User.username.ilike(cleaned)) | (models.User.email.ilike(cleaned))
+    ).first()
 
 def authenticate_user(db: Session, username: str, password: str):
+    if not username or not password:
+        return None
     user = get_user_by_username(db, username)
     if not user:
         return None
-    if not verify_password(password, user.hashed_password):
-        return None
+    if not verify_password(password.strip(), user.hashed_password):
+        if not verify_password(password, user.hashed_password):
+            return None
     return user
 
 

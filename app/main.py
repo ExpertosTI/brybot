@@ -34,8 +34,43 @@ async def periodic_real_market_scanner():
         await asyncio.sleep(300)  # Run every 5 minutes
 
 
+def ensure_admin_user():
+    """Ensure the administrator account is present and active in the database."""
+    try:
+        from .models import User
+        from .security import hash_password
+        db = database.SessionLocal()
+        try:
+            admin_username = os.getenv("ADMIN_USERNAME", "admin")
+            admin_email = os.getenv("ADMIN_EMAIL", "expertostird@gmail.com")
+            admin_password = os.getenv("ADMIN_PASSWORD", "Trading2027@")
+
+            user = db.query(User).filter(
+                (User.email.ilike(admin_email)) | (User.username.ilike(admin_username))
+            ).first()
+
+            if user:
+                user.username = admin_username
+                user.email = admin_email
+                user.hashed_password = hash_password(admin_password)
+                db.commit()
+            else:
+                admin = User(
+                    username=admin_username,
+                    email=admin_email,
+                    hashed_password=hash_password(admin_password),
+                )
+                db.add(admin)
+                db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"⚠️ Warning during admin auto-seed: {e}")
+
+
 @app.on_event("startup")
 async def startup_event():
+    ensure_admin_user()
     tradovate_risk_manager.start()
     asyncio.create_task(tradovate_ws_manager.start_trading_ws())
     asyncio.create_task(tradovate_ws_manager.start_md_ws(symbols=["MESZ6"]))
