@@ -387,7 +387,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       chart.remove();
       chartRef.current = null;
     };
-  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateSyntheticCandles, onPriceUpdate, height, compact]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateSyntheticCandles, height, compact]);
 
   // Set markers
   useEffect(() => {
