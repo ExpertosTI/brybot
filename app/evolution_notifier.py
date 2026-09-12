@@ -133,8 +133,22 @@ def format_whatsapp_number(number: str) -> str:
     return cleaned
 
 
+_RECENT_MESSAGES_CACHE: Dict[str, float] = {}
+
 def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[str, Any]:
-    """Sends a WhatsApp message via Evolution API."""
+    """Sends a WhatsApp message via Evolution API with anti-spam deduplication."""
+    global _RECENT_MESSAGES_CACHE
+    now = time.time()
+
+    # Clean old cache entries (older than 15 minutes)
+    _RECENT_MESSAGES_CACHE = {k: v for k, v in _RECENT_MESSAGES_CACHE.items() if (now - v) < 900}
+
+    # Anti-spam deduplication check
+    msg_key = f"{recipient or 'all'}_{text.strip()}"
+    if msg_key in _RECENT_MESSAGES_CACHE and (now - _RECENT_MESSAGES_CACHE[msg_key]) < 300:
+        logger.info("Evolution Notifier: Duplicate message suppressed by anti-spam filter.")
+        return {"status": "suppressed", "reason": "duplicate_message_in_cooldown"}
+
     recipients_to_send = []
     if recipient:
         formatted = format_whatsapp_number(recipient)
@@ -148,6 +162,8 @@ def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[st
 
     if not recipients_to_send:
         return {"status": "error", "message": "No valid phone numbers configured."}
+
+    _RECENT_MESSAGES_CACHE[msg_key] = now
 
     instance = _resolve_instance_name(EVOLUTION_CONFIG["instance"])
     url = f"{EVOLUTION_CONFIG['url']}/message/sendText/{instance}"
