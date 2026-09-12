@@ -65,15 +65,24 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         )}
         <div className="user-profile-badge">
-          <span className="user-role-tag">DEMO TRADER</span>
+          <span className="user-role-tag">{user?.username && user.username !== 'demo_trader' ? 'ADMIN' : 'DEMO'}</span>
           <span className="user-name-text">{user?.username || 'demo_trader'}</span>
         </div>
-        <Link to="/integrations" className="nav-link-btn">
-          Broker API
-        </Link>
-        <button type="button" className="logout-action-btn" onClick={handleLogout}>
-          Exit
-        </button>
+
+        {user?.username && user.username !== 'demo_trader' ? (
+          <>
+            <Link to="/integrations" className="nav-link-btn">
+              Broker API
+            </Link>
+            <button type="button" className="logout-action-btn" onClick={handleLogout}>
+              Salir
+            </button>
+          </>
+        ) : (
+          <Link to="/login" className="nav-link-btn" style={{ background: 'rgba(99, 102, 241, 0.2)', borderColor: 'rgba(99, 102, 241, 0.4)' }}>
+            🔑 Iniciar Sesión
+          </Link>
+        )}
       </div>
     </header>
   );

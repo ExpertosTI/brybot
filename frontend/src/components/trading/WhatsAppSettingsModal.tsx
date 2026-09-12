@@ -224,7 +224,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
           <div className="form-group-custom">
             <div className="field-label-row">
               <label className="field-title">
-                Evolution API Key <span className="key-configured-tag">● Conectada (d66888...f74a)</span>
+                Evolution API Key <span className="key-configured-tag">● Conectada y Segura</span>
               </label>
               <span className="field-hint-tag">Global API Key de renace.tech</span>
             </div>
@@ -233,7 +233,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
               className="topstep-input"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="d66888ea1d791329a97c934ea14014dc41c53e001440f74a (Activa)"
+              placeholder="•••••••••••••••••••• (API Key Activa)"
             />
           </div>
 
