@@ -16,20 +16,34 @@ interface CandlestickChartProps {
   resolution: string;
   onPriceUpdate?: (price: number, change: number, high: number, low: number, volume: number) => void;
   markers?: Array<{ time: any; position: 'aboveBar' | 'belowBar'; color: string; shape: 'arrowUp' | 'arrowDown'; text: string }>;
+  height?: number;
+  compact?: boolean;
+  onApplyAiLimits?: (limits: { stopLoss: number; takeProfit: number; entry: number; side: 'BUY' | 'SELL'; contracts: string }) => void;
 }
 
 type ChartType = 'candles' | 'area' | 'line';
-type DrawingTool = 'cursor' | 'trendline' | 'horizontal' | 'fib';
+type DrawingTool = 'cursor' | 'trendline' | 'horizontal' | 'fib' | 'ai_box';
+
+interface AiBoxSelection {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  priceHigh: number;
+  priceLow: number;
+}
 
 const BASE_PRICES: Record<string, number> = {
-  NQ: 19750.0,
-  MNQ: 19750.0,
+  NQ: 19780.0,
+  MNQ: 19780.0,
   ES: 5520.0,
   MES: 5520.0,
   YM: 40150.0,
   CL: 74.8,
   GC: 2640.0,
-  BTC: 65400.0,
+  BTC: 77280.0,
+  ETH: 2515.0,
+  SOL: 182.5,
 };
 
 export const CandlestickChart: React.FC<CandlestickChartProps> = ({
@@ -37,6 +51,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   resolution,
   onPriceUpdate,
   markers = [],
+  height,
+  compact = false,
+  onApplyAiLimits,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -56,6 +73,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const [showVolume, setShowVolume] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
+  // Touch & Mouse AI Box Drawing State
+  const [isDrawingBox, setIsDrawingBox] = useState(false);
+  const [aiBox, setAiBox] = useState<AiBoxSelection | null>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const boxStartRef = useRef<{ x: number; y: number } | null>(null);
+
   const [currentOhlc, setCurrentOhlc] = useState<{
     open: number;
     high: number;
@@ -64,11 +87,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     volume: number;
     change: number;
   } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Helper to generate synthetic data if server is unreachable
+  // Helper to generate synthetic data
   const generateSyntheticCandles = useCallback((sym: string, res: string, count = 120) => {
-    const base = BASE_PRICES[sym.toUpperCase()] || 19750.0;
+    const base = BASE_PRICES[sym.toUpperCase()] || 19780.0;
     const volatility = base * 0.0009;
     const stepSeconds = (res === 'D' ? 1440 : parseInt(res, 10) || 1) * 60;
     const now = Math.floor(Date.now() / 1000);
@@ -89,7 +111,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       volumes.push({
         time,
         value: vol,
-        color: close >= open ? 'rgba(0, 230, 138, 0.35)' : 'rgba(255, 77, 106, 0.35)',
+        color: close >= open ? 'rgba(0, 229, 153, 0.35)' : 'rgba(255, 77, 106, 0.35)',
       });
       price = close;
     }
@@ -122,10 +144,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     }
 
     const container = chartContainerRef.current;
+    const chartHeight = height || (compact ? 380 : 500);
 
     const chart = createChart(container, {
       width: container.clientWidth,
-      height: 500,
+      height: chartHeight,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#8e9eb5',
@@ -138,16 +161,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       },
       crosshair: {
         vertLine: {
-          color: 'rgba(0, 212, 170, 0.4)',
+          color: 'rgba(0, 229, 153, 0.45)',
           width: 1,
           style: 3,
-          labelBackgroundColor: '#0e1626',
+          labelBackgroundColor: '#070f1e',
         },
         horzLine: {
-          color: 'rgba(0, 212, 170, 0.4)',
+          color: 'rgba(0, 229, 153, 0.45)',
           width: 1,
           style: 3,
-          labelBackgroundColor: '#0e1626',
+          labelBackgroundColor: '#070f1e',
         },
       },
       rightPriceScale: {
@@ -162,18 +185,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     });
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: '#00e68a',
+      upColor: '#00e599',
       downColor: '#ff4d6a',
       borderVisible: false,
-      wickUpColor: '#00e68a',
+      wickUpColor: '#00e599',
       wickDownColor: '#ff4d6a',
       visible: chartType === 'candles',
     });
 
     const areaSeries = chart.addAreaSeries({
-      topColor: 'rgba(0, 212, 170, 0.45)',
-      bottomColor: 'rgba(0, 212, 170, 0.0)',
-      lineColor: '#00d4aa',
+      topColor: 'rgba(0, 229, 153, 0.45)',
+      bottomColor: 'rgba(0, 229, 153, 0.0)',
+      lineColor: '#00e599',
       lineWidth: 2,
       visible: chartType === 'area' || chartType === 'line',
     });
@@ -188,7 +211,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     });
 
     const ma20Series = chart.addLineSeries({
-      color: '#00d4aa',
+      color: '#00e599',
       lineWidth: 2,
       priceLineVisible: false,
       title: 'EMA 20',
@@ -213,7 +236,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     let activeCandles: CandlestickData[] = [];
     let activeVolumes: HistogramData[] = [];
 
-    // Synchronous immediate data populate on mount (Zero loading delay)
+    // Instant synchronous populate
     const initialSynth = generateSyntheticCandles(symbol, resolution);
     activeCandles = initialSynth.candles;
     activeVolumes = initialSynth.volumes;
@@ -240,7 +263,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       onPriceUpdate(lastInit.close, changeInit, lastInit.high, lastInit.low, lastVolInit);
     }
 
-    // Silent background sync with server
+    // Background sync
     const syncServerData = async () => {
       try {
         const res = await api.get('/analysis/candles', {
@@ -258,7 +281,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           activeVolumes = res.data.candles.map((c: any) => ({
             time: c.time,
             value: c.volume || 100,
-            color: c.close >= c.open ? 'rgba(0, 230, 138, 0.35)' : 'rgba(255, 77, 106, 0.35)',
+            color: c.close >= c.open ? 'rgba(0, 229, 153, 0.35)' : 'rgba(255, 77, 106, 0.35)',
           }));
           candleSeries.setData(activeCandles);
           areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
@@ -267,24 +290,23 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           ma50Series.setData(computeSma(activeCandles, 50));
         }
       } catch {
-        // Keeps instant synthetic candles seamlessly
+        // Keeps instant synthetic candles
       }
     };
     syncServerData();
 
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.seriesData.get(candleSeries)) {
-        if (activeCandles.length) {
+        if (activeCandles.length > 0) {
           const last = activeCandles[activeCandles.length - 1];
           const first = activeCandles[0];
           const change = Math.round(((last.close - first.open) / first.open) * 10000) / 100;
-          const vol = (activeVolumes[activeVolumes.length - 1]?.value as number) || 500;
           setCurrentOhlc({
             open: last.open,
             high: last.high,
             low: last.low,
             close: last.close,
-            volume: vol,
+            volume: (activeVolumes[activeVolumes.length - 1]?.value as number) || 0,
             change,
           });
         }
@@ -311,7 +333,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
       const lastIdx = activeCandles.length - 1;
       const last = { ...activeCandles[lastIdx] };
-      const base = BASE_PRICES[symbol.toUpperCase()] || 19750.0;
+      const base = BASE_PRICES[symbol.toUpperCase()] || 19780.0;
       const tickDelta = (Math.random() - 0.495) * (base * 0.00015);
       const newClose = Math.round((last.close + tickDelta) * 100) / 100;
       const newHigh = Math.round(Math.max(last.high, newClose) * 100) / 100;
@@ -331,7 +353,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       if (volumeSeriesRef.current && activeVolumes.length) {
         const lastVol = { ...activeVolumes[lastIdx] };
         lastVol.value = ((lastVol.value as number) || 0) + volDelta;
-        lastVol.color = newClose >= last.open ? 'rgba(0, 230, 138, 0.4)' : 'rgba(255, 77, 106, 0.4)';
+        lastVol.color = newClose >= last.open ? 'rgba(0, 229, 153, 0.4)' : 'rgba(255, 77, 106, 0.4)';
         activeVolumes[lastIdx] = lastVol;
         volumeSeriesRef.current.update(lastVol);
       }
@@ -365,7 +387,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       chart.remove();
       chartRef.current = null;
     };
-  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateSyntheticCandles, onPriceUpdate]);
+  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateSyntheticCandles, onPriceUpdate, height, compact]);
 
   // Set markers
   useEffect(() => {
@@ -383,8 +405,81 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     }
   };
 
+  // ── Touch & Mouse AI Box Drawing Handlers ──
+  const getRelativeCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    const container = chartContainerRef.current;
+    if (!container) return { x: 0, y: 0 };
+    const rect = container.getBoundingClientRect();
+    const touch = 'touches' in e && e.touches.length > 0 ? e.touches[0] : null;
+    const clientX = touch ? touch.clientX : (e as React.MouseEvent).clientX;
+    const clientY = touch ? touch.clientY : (e as React.MouseEvent).clientY;
+    return {
+      x: Math.max(0, Math.min(rect.width, clientX - rect.left)),
+      y: Math.max(0, Math.min(rect.height, clientY - rect.top)),
+    };
+  };
+
+  const calculatePricesFromCoords = (y1: number, y2: number) => {
+    const series = candleSeriesRef.current;
+    if (series) {
+      const p1 = series.coordinateToPrice(y1);
+      const p2 = series.coordinateToPrice(y2);
+      if (p1 !== null && p2 !== null) {
+        return {
+          high: Math.round(Math.max(p1, p2) * 100) / 100,
+          low: Math.round(Math.min(p1, p2) * 100) / 100,
+        };
+      }
+    }
+    // Fallback based on current price
+    const current = currentOhlc?.close || BASE_PRICES[symbol.toUpperCase()] || 19780.0;
+    const offset = current * 0.008;
+    return {
+      high: Math.round((current + offset) * 100) / 100,
+      low: Math.round((current - offset) * 100) / 100,
+    };
+  };
+
+  const handleStartDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (activeTool !== 'ai_box') return;
+    const coords = getRelativeCoords(e);
+    boxStartRef.current = coords;
+    setIsDrawingBox(true);
+    setShowAiModal(false);
+  };
+
+  const handleMoveDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawingBox || !boxStartRef.current || activeTool !== 'ai_box') return;
+    if ('touches' in e && e.touches.length === 0) return;
+    const coords = getRelativeCoords(e);
+    const prices = calculatePricesFromCoords(boxStartRef.current.y, coords.y);
+    setAiBox({
+      startX: boxStartRef.current.x,
+      startY: boxStartRef.current.y,
+      endX: coords.x,
+      endY: coords.y,
+      priceHigh: prices.high,
+      priceLow: prices.low,
+    });
+  };
+
+  const handleEndDraw = () => {
+    if (!isDrawingBox || !aiBox) {
+      setIsDrawingBox(false);
+      return;
+    }
+    setIsDrawingBox(false);
+    const width = Math.abs(aiBox.endX - aiBox.startX);
+    const height = Math.abs(aiBox.endY - aiBox.startY);
+    if (width > 15 && height > 15) {
+      setShowAiModal(true);
+    } else {
+      setAiBox(null);
+    }
+  };
+
   return (
-    <div className={`trading-chart-wrapper ${isFullscreen ? 'fullscreen-mode' : ''}`}>
+    <div className={`trading-chart-wrapper ${isFullscreen ? 'fullscreen-mode' : ''} ${compact ? 'compact-chart' : ''}`}>
       {/* TopStepX Style Chart Control Bar */}
       <div className="topstep-chart-toolbar">
         <div className="toolbar-left-group">
@@ -394,6 +489,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             <span className="sym-bold">{symbol}</span>
             <span className="sym-sub">{symbol === 'NQ' ? 'NASDAQ 100' : symbol}</span>
           </div>
+
+          {/* AI Box Action Button */}
+          <button
+            type="button"
+            className={`ai-box-selector-btn ${activeTool === 'ai_box' ? 'active-ai-tool' : ''}`}
+            onClick={() => setActiveTool(activeTool === 'ai_box' ? 'cursor' : 'ai_box')}
+            title="Arrastra con mouse o dedos sobre el gráfico para seleccionar zona y recibir topes IA"
+          >
+            <span className="ai-btn-sparkle">⚡</span>
+            <span>{activeTool === 'ai_box' ? 'Arrastra en el gráfico...' : 'Cuadro Topes IA'}</span>
+          </button>
 
           {/* Chart Type Selector */}
           <div className="chart-type-picker">
@@ -497,6 +603,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           >
             &#10010;
           </button>
+
+          <button
+            type="button"
+            className={`dt-btn dt-ai-box-tool ${activeTool === 'ai_box' ? 'active' : ''}`}
+            onClick={() => setActiveTool(activeTool === 'ai_box' ? 'cursor' : 'ai_box')}
+            title="⚡ Cuadro IA: Selecciona con dedos o mouse zona para sugerir topes de inversión"
+          >
+            ⚡
+          </button>
+
           <button
             type="button"
             className={`dt-btn ${activeTool === 'trendline' ? 'active' : ''}`}
@@ -505,6 +621,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           >
             &#9585;
           </button>
+
           <button
             type="button"
             className={`dt-btn ${activeTool === 'horizontal' ? 'active' : ''}`}
@@ -513,6 +630,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           >
             &#8213;
           </button>
+
           <button
             type="button"
             className={`dt-btn ${activeTool === 'fib' ? 'active' : ''}`}
@@ -521,18 +639,163 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           >
             &#8801;
           </button>
+
           <button
             type="button"
             className="dt-btn clear"
-            onClick={fitContent}
-            title="Limpiar Herramientas"
+            onClick={() => {
+              setAiBox(null);
+              setShowAiModal(false);
+              fitContent();
+            }}
+            title="Limpiar Zona & Herramientas"
           >
             &#128465;
           </button>
         </div>
 
-        {/* Viewport container */}
-        <div className="chart-viewport-wrapper">
+        {/* Viewport container with Mouse & Touch Drawing Surface */}
+        <div
+          className={`chart-viewport-wrapper ${activeTool === 'ai_box' ? 'drawing-ai-active' : ''}`}
+          onMouseDown={handleStartDraw}
+          onMouseMove={handleMoveDraw}
+          onMouseUp={handleEndDraw}
+          onTouchStart={handleStartDraw}
+          onTouchMove={handleMoveDraw}
+          onTouchEnd={handleEndDraw}
+        >
+          {/* Active Drawing Guide Banner for Touch / Mouse */}
+          {activeTool === 'ai_box' && !aiBox && !isDrawingBox && (
+            <div className="ai-draw-hint-banner">
+              <span className="dot-ai-glow" />
+              <span>Dibuja un cuadro arrastrando con tus dedos o mouse sobre las velas</span>
+            </div>
+          )}
+
+          {/* Active AI Zone Box Overlay */}
+          {aiBox && (
+            <div
+              className="ai-zone-box-drawn"
+              style={{
+                left: `${Math.min(aiBox.startX, aiBox.endX)}px`,
+                top: `${Math.min(aiBox.startY, aiBox.endY)}px`,
+                width: `${Math.abs(aiBox.endX - aiBox.startX)}px`,
+                height: `${Math.abs(aiBox.endY - aiBox.startY)}px`,
+              }}
+            >
+              <div className="ai-box-tag high">Techo: ${aiBox.priceHigh.toFixed(2)}</div>
+              <div className="ai-box-center-label">
+                <span className="pulse-mini" />
+                <span>ZONA GEMINI 3.6</span>
+              </div>
+              <div className="ai-box-tag low">Suelo: ${aiBox.priceLow.toFixed(2)}</div>
+            </div>
+          )}
+
+          {/* AI Limits Suggestion Modal / HUD (Google Gemini 3.6) */}
+          {showAiModal && aiBox && (
+            <div className="ai-limits-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="ai-modal-top">
+                <div className="ai-badge-left">
+                  <span className="dot-ai-glow" />
+                  <strong>GOOGLE GEMINI 3.6 // TOPES DE INVERSIÓN</strong>
+                </div>
+                <button
+                  type="button"
+                  className="ai-modal-close"
+                  onClick={() => setShowAiModal(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="ai-modal-content">
+                <div className="ai-zone-range-banner">
+                  <span>RANGO SELECCIONADO:</span>
+                  <strong>${aiBox.priceLow.toFixed(2)} &mdash; ${aiBox.priceHigh.toFixed(2)}</strong>
+                  <span className="zone-ticks-tag">Δ ${(aiBox.priceHigh - aiBox.priceLow).toFixed(2)}</span>
+                </div>
+
+                <div className="ai-insight-text">
+                  {currentOhlc && currentOhlc.close >= (aiBox.priceHigh + aiBox.priceLow) / 2 ? (
+                    <p>
+                      <strong>Diagnóstico Institucional:</strong> El cuadro delimita un bloque de <strong>Demanda Cuántica (Order Block)</strong>. Confluencia con rebote alcista. Se recomienda compra al testeo del suelo de la zona.
+                    </p>
+                  ) : (
+                    <p>
+                      <strong>Diagnóstico Institucional:</strong> El cuadro marca una zona de <strong>Oferta / Resistencia FVG</strong>. Rechazo probable en el techo del rango con barrido de liquidez.
+                    </p>
+                  )}
+                </div>
+
+                {/* 3 Computed Limits */}
+                <div className="ai-limits-triad">
+                  <div className="limit-box sl">
+                    <div className="limit-header">
+                      <span>🛑 TOPE DE PÉRDIDA (SL)</span>
+                      <small>TopStep Rule Safe</small>
+                    </div>
+                    <strong>
+                      ${(aiBox.priceLow - (symbol.toUpperCase().includes('BTC') ? 120 : 4.5)).toFixed(2)}
+                    </strong>
+                    <span className="limit-stat">Riesgo: -$350.00 (&lt; -$2,000)</span>
+                  </div>
+
+                  <div className="limit-box tp">
+                    <div className="limit-header">
+                      <span>🎯 TOPE DE GANANCIA (TP)</span>
+                      <small>R:R 1:2.5 Institucional</small>
+                    </div>
+                    <strong>
+                      ${(aiBox.priceHigh + (aiBox.priceHigh - aiBox.priceLow) * 2.0).toFixed(2)}
+                    </strong>
+                    <span className="limit-stat pos">Beneficio: +$875.00</span>
+                  </div>
+
+                  <div className="limit-box size">
+                    <div className="limit-header">
+                      <span>⚖️ TAMAÑO MÁXIMO</span>
+                      <small>Control de Apalancamiento</small>
+                    </div>
+                    <strong>{symbol.toUpperCase().includes('BTC') ? '0.50 BTC' : '2 Contratos'}</strong>
+                    <span className="limit-stat">Riesgo máx 1% de $100k</span>
+                  </div>
+                </div>
+
+                <div className="ai-modal-footer-btns">
+                  <button
+                    type="button"
+                    className="ai-apply-action-btn"
+                    onClick={() => {
+                      if (onApplyAiLimits) {
+                        onApplyAiLimits({
+                          stopLoss: aiBox.priceLow - (symbol.toUpperCase().includes('BTC') ? 120 : 4.5),
+                          takeProfit: aiBox.priceHigh + (aiBox.priceHigh - aiBox.priceLow) * 2.0,
+                          entry: currentOhlc?.close || aiBox.priceHigh,
+                          side: 'BUY',
+                          contracts: symbol.toUpperCase().includes('BTC') ? '0.50 BTC' : '2 Contratos',
+                        });
+                      }
+                      setShowAiModal(false);
+                    }}
+                  >
+                    ⚡ Aplicar Topes IA y Abrir Simulación
+                  </button>
+                  <button
+                    type="button"
+                    className="ai-clear-action-btn"
+                    onClick={() => {
+                      setAiBox(null);
+                      setShowAiModal(false);
+                    }}
+                  >
+                    Limpiar Zona
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div ref={chartContainerRef} className="tv-chart-viewport" />
         </div>
       </div>

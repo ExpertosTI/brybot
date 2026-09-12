@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { api, API_BASE_URL } from '../api';
+import { CandlestickChart } from '../components/trading/CandlestickChart';
 
 interface CryptoAsset {
   symbol: string;
@@ -670,82 +671,34 @@ export function Login() {
                 </div>
               </div>
 
-              {/* Live Interactive SVG Candlestick Engine with Indicators */}
-              <div className="station-chart-canvas-wrap">
-                <svg className="live-candle-svg" viewBox="0 0 500 220" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="chartGlowArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00e599" stopOpacity="0.22" />
-                      <stop offset="100%" stopColor="#00e599" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* High tech grid lines */}
-                  <line x1="0" y1="55" x2="500" y2="55" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                  <line x1="0" y1="110" x2="500" y2="110" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                  <line x1="0" y1="165" x2="500" y2="165" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-
-                  {/* Fibonacci Retracement Levels */}
-                  <line x1="0" y1="85" x2="500" y2="85" stroke="rgba(245, 158, 11, 0.35)" strokeDasharray="4 4" />
-                  <text x="440" y="82" fill="rgba(245, 158, 11, 0.7)" fontSize="9" fontFamily="monospace">FIB 61.8%</text>
-
-                  {/* EMA 20 line (Cyan) */}
-                  <path
-                    d="M 20,165 Q 120,140 240,115 T 480,75"
-                    fill="none"
-                    stroke="#00b4d8"
-                    strokeWidth="2"
-                    strokeDasharray="1 0"
-                  />
-
-                  {/* Area fill */}
-                  <path
-                    d="M 20,175 Q 120,150 240,125 T 480,85 L 480,220 L 20,220 Z"
-                    fill="url(#chartGlowArea)"
-                  />
-
-                  {/* Candlestick Bars */}
-                  {activeAsset.candles.map((price, idx) => {
-                    const x = 35 + idx * 60;
-                    const prevPrice = idx > 0 ? activeAsset.candles[idx - 1] : price;
-                    const isGreen = price >= prevPrice;
-                    const minP = Math.min(...activeAsset.candles);
-                    const maxP = Math.max(...activeAsset.candles);
-                    const range = maxP - minP || 1;
-                    const normalizedY = 175 - ((price - minP) / range) * 110;
-                    const candleHeight = Math.max(16, Math.abs(price - prevPrice) * 0.4);
-
-                    return (
-                      <g key={idx}>
-                        {/* Candle Wick */}
-                        <line
-                          x1={x + 10}
-                          y1={normalizedY - 14}
-                          x2={x + 10}
-                          y2={normalizedY + candleHeight + 14}
-                          stroke={isGreen ? '#00e599' : '#ff4d6a'}
-                          strokeWidth="1.5"
-                        />
-                        {/* Candle Body */}
-                        <rect
-                          x={x}
-                          y={normalizedY}
-                          width="20"
-                          height={candleHeight}
-                          rx="3"
-                          fill={isGreen ? '#00e599' : '#ff4d6a'}
-                          stroke={isGreen ? '#5eead4' : '#ff758f'}
-                          strokeWidth="1"
-                        />
-                      </g>
-                    );
-                  })}
-                </svg>
-
-                <div className="chart-floating-indicator">
-                  <span className="indicator-dot" />
-                  <span>SEÑAL QUANT GEMINI 3.6: LONG / COMPRA (91% CONFIANZA)</span>
-                </div>
+              {/* Real Interactive Candlestick Chart Engine (TradingView Lightweight) with Touch/Mouse AI Box */}
+              <div className="landing-real-chart-station-body">
+                <CandlestickChart
+                  symbol={selectedAssetKey}
+                  resolution="1"
+                  height={380}
+                  compact={true}
+                  onPriceUpdate={(p, chg, h, l, vol) => {
+                    setMarketData((prev) => {
+                      if (!prev[selectedAssetKey]) return prev;
+                      return {
+                        ...prev,
+                        [selectedAssetKey]: {
+                          ...prev[selectedAssetKey],
+                          price: p,
+                          change: `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`,
+                          isPos: chg >= 0,
+                          high: h,
+                          low: l,
+                          volume: vol > 1e6 ? `$${(vol / 1e6).toFixed(1)}M` : `${vol.toLocaleString()} Lots`,
+                        },
+                      };
+                    });
+                  }}
+                  onApplyAiLimits={() => {
+                    handleDemoLogin();
+                  }}
+                />
               </div>
 
               {/* 1-Click Execution Triggers on Landing */}
