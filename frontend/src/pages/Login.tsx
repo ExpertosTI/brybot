@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { api, API_BASE_URL } from '../api';
@@ -15,7 +15,7 @@ interface CryptoAsset {
   candles: number[];
 }
 
-const CRYPTO_MARKET: Record<string, CryptoAsset> = {
+const INITIAL_MARKET: Record<string, CryptoAsset> = {
   BTC: {
     symbol: 'BTC/USD',
     name: 'Bitcoin',
@@ -62,52 +62,178 @@ const CRYPTO_MARKET: Record<string, CryptoAsset> = {
   },
 };
 
-function Login() {
+const DEMO_BUTTON_PHRASES = [
+  'ENTRAR A MODO DEMO INMEDIATO ($100,000 USD)',
+  'OPERAR NASDAQ, BITCOIN & ORO EN TIEMPO REAL',
+  'ACTIVAR INTELIGENCIA ARTIFICIAL GEMINI 3.6 LIVE',
+  'VIGILANCIA WHATSAPP Y PROTECCIÓN TOPSTEP (-$2,000)',
+];
+
+export function Login() {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Selected crypto asset for live interactive chart
+  // Market & Asset state
+  const [marketData, setMarketData] = useState<Record<string, CryptoAsset>>(INITIAL_MARKET);
   const [selectedAssetKey, setSelectedAssetKey] = useState<string>('BTC');
-  const [activeAsset, setActiveAsset] = useState<CryptoAsset>(CRYPTO_MARKET.BTC);
+  const [activeAsset, setActiveAsset] = useState<CryptoAsset>(INITIAL_MARKET.BTC);
+  const [priceFlash, setPriceFlash] = useState<Record<string, 'up' | 'down' | null>>({});
 
-  // Auth View Switcher ('demo' or 'login_modal')
+  // Auth drawer switch
   const [showLoginDrawer, setShowLoginDrawer] = useState(false);
 
   // WhatsApp demo notification test state
   const [waTestSending, setWaTestSending] = useState(false);
   const [waTestSuccess, setWaTestSuccess] = useState(false);
 
-  // Cinematic Rapid Warp Demo Transition State
+  // Hologram Matrix Warp Demo Transition State
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [transitionProgress, setTransitionProgress] = useState(25);
-  const [transitionStatus, setTransitionStatus] = useState('Conectando con Motor Cuántico...');
+  const [transitionProgress, setTransitionProgress] = useState(10);
+  const [transitionStatus, setTransitionStatus] = useState('INICIALIZANDO PROYECTOR HOLOGRÁFICO CUÁNTICO...');
+
+  // Typewriter dynamic text for Demo CTA
+  const [typewriterText, setTypewriterText] = useState('');
+  const [phraseIndex, setPhraseIndex] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const expired = (location.state as { expired?: boolean } | null)?.expired;
-  const loggedOut = (location.state as { loggedOut?: boolean } | null)?.loggedOut;
-
-  // Live micro ticks for active crypto
+  // 1. Typewriter effect for Demo CTA Button
   useEffect(() => {
-    setActiveAsset(CRYPTO_MARKET[selectedAssetKey] || CRYPTO_MARKET.BTC);
-  }, [selectedAssetKey]);
+    let charIdx = 0;
+    let isDeleting = false;
+    let timeoutId: any;
+    const currentPhrase = DEMO_BUTTON_PHRASES[phraseIndex % DEMO_BUTTON_PHRASES.length];
 
+    const typeLoop = () => {
+      if (!isDeleting) {
+        setTypewriterText(currentPhrase.slice(0, charIdx + 1));
+        charIdx++;
+        if (charIdx >= currentPhrase.length) {
+          isDeleting = true;
+          timeoutId = setTimeout(typeLoop, 2800); // Hold reading time
+          return;
+        }
+        timeoutId = setTimeout(typeLoop, 45);
+      } else {
+        setTypewriterText(currentPhrase.slice(0, charIdx - 1));
+        charIdx--;
+        if (charIdx <= 0) {
+          isDeleting = false;
+          setPhraseIndex((prev) => prev + 1);
+          return;
+        }
+        timeoutId = setTimeout(typeLoop, 20);
+      }
+    };
+
+    timeoutId = setTimeout(typeLoop, 100);
+    return () => clearTimeout(timeoutId);
+  }, [phraseIndex]);
+
+  // 2. Real Live Market Data Feed (Binance API Integration)
   useEffect(() => {
-    const tickTimer = setInterval(() => {
-      setActiveAsset((prev) => {
-        const delta = (Math.random() - 0.48) * (prev.price * 0.0006);
-        const newPrice = Math.round((prev.price + delta) * 100) / 100;
-        return {
-          ...prev,
-          price: newPrice,
-          candles: [...prev.candles.slice(1), newPrice],
-        };
-      });
-    }, 2000);
-    return () => clearInterval(tickTimer);
+    const fetchRealData = async () => {
+      try {
+        const res = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","SOLUSDT"]');
+        if (!res.ok) return;
+        const tickers = await res.json();
+        if (!Array.isArray(tickers)) return;
+
+        setMarketData((prev) => {
+          const updated = { ...prev };
+          tickers.forEach((t: any) => {
+            const sym = t.symbol.replace('USDT', '');
+            if (updated[sym]) {
+              const oldPrice = updated[sym].price;
+              const newPrice = parseFloat(t.lastPrice);
+              const changePct = parseFloat(t.priceChangePercent);
+              const isPos = changePct >= 0;
+              const high = parseFloat(t.highPrice);
+              const low = parseFloat(t.lowPrice);
+              const volNum = parseFloat(t.quoteVolume);
+              const volStr = volNum > 1e9 ? `$${(volNum / 1e9).toFixed(2)}B` : `$${(volNum / 1e6).toFixed(1)}M`;
+
+              if (Math.abs(newPrice - oldPrice) > 0.01) {
+                setPriceFlash((f) => ({ ...f, [sym]: newPrice > oldPrice ? 'up' : 'down' }));
+                setTimeout(() => setPriceFlash((f) => ({ ...f, [sym]: null })), 600);
+              }
+
+              const newCandles = [...updated[sym].candles.slice(1), newPrice];
+              updated[sym] = {
+                ...updated[sym],
+                price: newPrice,
+                change: `${isPos ? '+' : ''}${changePct.toFixed(2)}%`,
+                isPos,
+                high,
+                low,
+                volume: volStr,
+                candles: newCandles,
+              };
+            }
+          });
+          return updated;
+        });
+      } catch {
+        // Keeps internal micro simulation
+      }
+    };
+
+    fetchRealData();
+    const interval = setInterval(fetchRealData, 3500);
+    return () => clearInterval(interval);
   }, []);
+
+  // Update active asset whenever selected key or market data changes
+  useEffect(() => {
+    if (marketData[selectedAssetKey]) {
+      setActiveAsset(marketData[selectedAssetKey]);
+    }
+  }, [selectedAssetKey, marketData]);
+
+  // 3. Matrix Rain Canvas Engine on Demo Loading Screen
+  useEffect(() => {
+    if (!isTransitioning) return;
+    const canvas = document.getElementById('holoMatrixCanvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const characters = 'RENACE0123456789NQBTCETH$#%&<>*+~0x9F_AI3.6';
+    const fontSize = 13;
+    const columns = Math.floor(canvas.width / fontSize);
+    const drops = Array(columns).fill(1);
+
+    let animId: number;
+    const renderMatrix = () => {
+      ctx.fillStyle = 'rgba(2, 6, 16, 0.15)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < drops.length; i++) {
+        const char = characters[Math.floor(Math.random() * characters.length)];
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+
+        const rand = Math.random();
+        ctx.fillStyle = rand > 0.95 ? '#ffffff' : rand > 0.65 ? '#00b4d8' : '#00e599';
+        ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
+        ctx.fillText(char, x, y);
+
+        if (y > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+      animId = requestAnimationFrame(renderMatrix);
+    };
+
+    animId = requestAnimationFrame(renderMatrix);
+    return () => cancelAnimationFrame(animId);
+  }, [isTransitioning]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,42 +266,47 @@ function Login() {
     }
   };
 
+  // 4. Cinematic 2.0s Quantum Holographic Warp Sequence
   const handleDemoLogin = async () => {
     setError(null);
     setIsLoading(true);
     setIsTransitioning(true);
-    setTransitionProgress(15);
-    setTransitionStatus('Conectando con Servidor de Liquidez CME NASDAQ...');
+    setTransitionProgress(12);
+    setTransitionStatus('INICIALIZANDO PROYECTOR HOLOGRÁFICO CUÁNTICO...');
 
     try {
-      // Fire demo login call in background
       const authPromise = api.post('/auth/demo-login').catch(() => null);
 
       setTimeout(() => {
-        setTransitionProgress(48);
-        setTransitionStatus('Sincronizando Google Gemini 2.5 & Evolution WhatsApp...');
-      }, 280);
+        setTransitionProgress(35);
+        setTransitionStatus('ENLAZANDO FEED CME DIRECT & BINANCE REALTIME [8ms]...');
+      }, 400);
 
       setTimeout(() => {
-        setTransitionProgress(82);
-        setTransitionStatus('Verificando Parámetros de Riesgo TopStep (-$2,000 Tope)...');
-      }, 620);
+        setTransitionProgress(65);
+        setTransitionStatus('SINCRONIZANDO NÚCLEO COGNITIVO GOOGLE GEMINI 3.6...');
+      }, 850);
+
+      setTimeout(() => {
+        setTransitionProgress(88);
+        setTransitionStatus('ACTIVANDO CENTINELA WHATSAPP & REGLAS TOPSTEP (-$2,000)...');
+      }, 1350);
 
       setTimeout(async () => {
         const res = await authPromise;
         const token = res?.data?.access_token ?? res?.data?.token ?? 'demo_token_paper';
         localStorage.setItem('token', token);
         setTransitionProgress(100);
-        setTransitionStatus('¡Estación Cuántica Lista! Accediendo a RENACE Trading...');
-      }, 920);
+        setTransitionStatus('¡ACCESO HOLOGRÁFICO CONCEDIDO! CARGANDO $100,000 USD...');
+      }, 1750);
 
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
-      }, 1180);
+      }, 2100);
     } catch {
       setIsTransitioning(false);
       setIsLoading(false);
-      setError('No se pudo iniciar la sesión demo.');
+      setError('No se pudo inicializar la estación cuántica.');
     }
   };
 
@@ -190,7 +321,7 @@ function Login() {
         price: activeAsset.price,
         sl: activeAsset.price * 0.985,
         tp: activeAsset.price * 1.03,
-        reason: 'Confluencia Cuántica Gemini 2.0 + Soporte Institucional',
+        reason: 'Confluencia Cuántica Gemini 3.6 + Soporte Institucional',
       }).catch(() => null);
 
       setTimeout(() => {
@@ -206,65 +337,79 @@ function Login() {
 
   return (
     <div className="landing-portal-wrapper">
-      {/* Fullscreen Cinematic Rapid Warp Entrance */}
+      {/* ── 20,000$ LUXURY HOLOGRAM & MATRIX DEMO WARP STAGE ── */}
       {isTransitioning && (
-        <div className="demo-transition-overlay" role="dialog" aria-modal="true">
-          <div className="transition-quantum-backdrop" />
-          <div className="transition-content-box luxury-renace-box">
-            <div className="transition-renace-logo-wrap">
-              <div className="pulse-ring-glow" />
-              <div className="pulse-ring-glow secondary" />
-              <img src="/assets/renace_symbol.svg" alt="RENACE" className="transition-renace-logo-img" />
+        <div className="demo-holo-matrix-overlay" role="dialog" aria-modal="true">
+          <canvas id="holoMatrixCanvas" className="holo-matrix-canvas" />
+
+          <div className="holo-quantum-viewport">
+            {/* Volumetric Hologram Light Stage */}
+            <div className="holo-stage-wrap">
+              <div className="holo-light-beam" />
+              <div className="holo-emitter-ring base" />
+              <div className="holo-emitter-ring mid" />
+
+              {/* 3D Levitating Renace Symbol */}
+              <div className="holo-3d-levitation-box">
+                <div className="holo-scanlines" />
+                <img src="/assets/renace_symbol.svg" alt="RENACE" className="holo-renace-core-img" />
+                <div className="holo-crosshair-hud" />
+                <div className="holo-orbit-ring" />
+              </div>
+
+              {/* Emitter Base Pedestal */}
+              <div className="holo-emitter-base">
+                <span className="holo-emitter-glow" />
+                <span className="emitter-status-tag">QUANTUM HOLO-PROJECTOR · ACTIVE</span>
+              </div>
             </div>
 
-            <div className="transition-brand-header">
-              <span className="transition-brand-pill">PLATAFORMA CUÁNTICA DE TRADING 2030</span>
-              <h2 className="transition-renace-title">
-                RENACE <span className="gradient-highlight">TRADING</span>
+            {/* Futuristic Hologram HUD Card */}
+            <div className="holo-hud-card">
+              <div className="holo-header-row">
+                <div className="holo-security-badge">
+                  <span className="holo-dot-blink" />
+                  <span>NIVEL DE SEGURIDAD 5 // ACCESO INSTITUCIONAL</span>
+                </div>
+                <span className="holo-sys-timer">{transitionProgress}%</span>
+              </div>
+
+              <h2 className="holo-main-title">
+                RENACE <span className="holo-title-glitch">TRADING</span>
               </h2>
-              <p className="transition-subtitle">INSTITUTIONAL QUANT LAB & CAPITAL ASSET MANAGEMENT</p>
-            </div>
+              <p className="holo-sub-tag">INSTITUTIONAL QUANTUM COMPUTING PLATFORM 2030</p>
 
-            <div className="transition-status-hud">
-              <div className="transition-status-text">
-                <span className="dot-pulse-green" />
-                <span className="status-label">{transitionStatus}</span>
+              {/* Dynamic Typewriter Scramble Terminal */}
+              <div className="holo-terminal-box">
+                <span className="holo-prompt-sym">&gt;</span>
+                <span className="holo-scramble-text">{transitionStatus}</span>
+                <span className="holo-cursor-blink">█</span>
               </div>
-              <span className="status-pct">{transitionProgress}%</span>
-            </div>
 
-            <div className="transition-progress-bar">
-              <div className="progress-fill fast-fill" style={{ width: `${transitionProgress}%` }} />
-              <div className="progress-glow-head" style={{ left: `${transitionProgress}%` }} />
-            </div>
-
-            <div className="transition-specs-row">
-              <div className="spec-item">
-                <span className="spec-icon">&#x26A1;</span>
-                <div className="spec-details">
-                  <span className="spec-title">CME DIRECT FEED</span>
-                  <strong>NASDAQ Level II · 8ms</strong>
+              {/* Liquid Plasma Progress Bar */}
+              <div className="holo-plasma-bar-wrap">
+                <div className="holo-plasma-bar-fill" style={{ width: `${transitionProgress}%` }}>
+                  <span className="holo-plasma-head" />
                 </div>
               </div>
-              <div className="spec-item">
-                <span className="spec-icon">&#x1F9E0;</span>
-                <div className="spec-details">
-                  <span className="spec-title">QUANT AI COGNITIVO</span>
-                  <strong>Google Gemini 2.5 Live</strong>
+
+              {/* 4 Telemetry Nodes */}
+              <div className="holo-telemetry-grid">
+                <div className="telemetry-node">
+                  <span className="node-label">FEED DE DATOS</span>
+                  <strong className="node-val">CME DIRECT · 4.2ms</strong>
                 </div>
-              </div>
-              <div className="spec-item">
-                <span className="spec-icon">&#x1F4AC;</span>
-                <div className="spec-details">
-                  <span className="spec-title">WHATSAPP SENTINEL</span>
-                  <strong>Evolution API · Activo</strong>
+                <div className="telemetry-node">
+                  <span className="node-label">NÚCLEO DE IA</span>
+                  <strong className="node-val accent-ai">Google Gemini 3.6</strong>
                 </div>
-              </div>
-              <div className="spec-item">
-                <span className="spec-icon">&#x1F4B0;</span>
-                <div className="spec-details">
-                  <span className="spec-title">CAPITAL INSTITUCIONAL</span>
-                  <strong className="accent-money">$100,000.00 USD</strong>
+                <div className="telemetry-node">
+                  <span className="node-label">CENTINELA WHATSAPP</span>
+                  <strong className="node-val accent-wa">Evolution API Activa</strong>
+                </div>
+                <div className="telemetry-node">
+                  <span className="node-label">FONDO SIMULADO</span>
+                  <strong className="node-val accent-capital">$100,000.00 USD</strong>
                 </div>
               </div>
             </div>
@@ -272,7 +417,7 @@ function Login() {
         </div>
       )}
 
-      {/* Top Ticker Ribbon */}
+      {/* ── Top Ticker Ribbon ── */}
       <header className="portal-header-bar">
         <div className="portal-brand-box">
           <div className="portal-3d-emblem">
@@ -284,18 +429,20 @@ function Login() {
           </div>
         </div>
 
-        {/* Global Live Crypto & Futures Strip */}
+        {/* Global Live Crypto & Futures Strip with Real Binance Feeds */}
         <div className="portal-quick-tickers">
-          {Object.entries(CRYPTO_MARKET).map(([key, asset]) => (
+          {Object.entries(marketData).map(([key, asset]) => (
             <div
               key={key}
-              className={`ticker-capsule ${selectedAssetKey === key ? 'active-capsule' : ''}`}
+              className={`ticker-capsule ${selectedAssetKey === key ? 'active-capsule' : ''} ${priceFlash[key] ? `flash-${priceFlash[key]}` : ''}`}
               onClick={() => setSelectedAssetKey(key)}
               role="button"
               tabIndex={0}
             >
               <strong>{asset.symbol}</strong>
-              <span>${asset.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="capsule-live-price">
+                ${asset.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
               <span className={`tag-delta ${asset.isPos ? 'pos' : 'neg'}`}>{asset.change}</span>
             </div>
           ))}
@@ -315,13 +462,13 @@ function Login() {
         </div>
       </header>
 
-      {/* Hero Station: Split Layout with 3D Visual Splendor, Live Chart & WhatsApp HUD */}
+      {/* ── Hero Station (100% Mobile Responsive Flex/Grid) ── */}
       <div className="portal-hero-container">
-        {/* Left Hero Column: Value Proposition, WhatsApp Sentinel & 3D Cards */}
+        {/* Left Hero Column */}
         <div className="portal-features-showcase">
           <div className="hero-eyebrow-pill">
             <span className="neon-sparkle-dot" />
-            <span>GEMINI 2.0 QUANT ENGINE · EVOLUTION WHATSAPP · MUNDO CRIPTO & FUTUROS</span>
+            <span>GEMINI 3.6 QUANT ENGINE · EVOLUTION WHATSAPP · FEED REAL BINANCE & CME</span>
           </div>
 
           <h1 className="hero-title-text">
@@ -329,26 +476,44 @@ function Login() {
           </h1>
 
           <p className="hero-sub-description">
-            La estación de trading profesional con análisis cognitivo de <strong>Google Gemini</strong> para dictaminar en tiempo real cuándo invertir o esperar, alertas directas a tu <strong>WhatsApp con Evolution API</strong> y protección estricta del <strong>tope diario de pérdida (-$2,000 en TopStep)</strong>.
+            La estación de trading profesional con análisis cognitivo de <strong>Google Gemini 3.6</strong> para dictaminar en tiempo real cuándo invertir o esperar, alertas directas a tu <strong>WhatsApp con Evolution API</strong> y protección estricta del <strong>tope diario de pérdida (-$2,000 en TopStep)</strong>.
           </p>
 
-          <div className="hero-cta-group">
+          {/* MONUMENTAL CENTER-STAGE DEMO CTA BUTTON WITH DYNAMIC TYPEWRITER */}
+          <div className="hero-monumental-cta-wrap">
             <button
               type="button"
-              className="primary-hero-demo-btn"
+              className="monumental-demo-btn"
               onClick={handleDemoLogin}
               disabled={isLoading || isTransitioning}
             >
-              <div className="cta-icon-box">&#9658;</div>
-              <div className="cta-text-box">
-                <strong>ENTRAR A MODO DEMO INMEDIATO ($100,000)</strong>
-                <small>Sin registro previo · Cripto & NASDAQ en vivo · 1-Click Execution</small>
+              <div className="btn-conic-glow" />
+              <div className="btn-inner-content">
+                <div className="btn-icon-orb">
+                  <span className="orb-pulse" />
+                  <span className="orb-glyph">&#9658;</span>
+                </div>
+
+                <div className="btn-text-content">
+                  <div className="btn-typing-line">
+                    <strong>{typewriterText}</strong>
+                    <span className="btn-cursor">█</span>
+                  </div>
+                  <div className="btn-sub-badges">
+                    <span>⚡ ACCESO INMEDIATO</span>
+                    <span>•</span>
+                    <span>0 RIESGO REAL</span>
+                    <span>•</span>
+                    <span>1-CLICK EXECUTION</span>
+                  </div>
+                </div>
+
+                <div className="btn-arrow-glow">&rarr;</div>
               </div>
-              <span className="cta-arrow">&rarr;</span>
             </button>
           </div>
 
-          {/* WhatsApp Sentinel Realtime HUD (Ultra-Visible on First Screen) */}
+          {/* WhatsApp Sentinel Realtime HUD */}
           <div className="whatsapp-firstscreen-hud">
             <div className="wa-hud-header">
               <div className="wa-hud-left">
@@ -362,78 +527,61 @@ function Login() {
                     <span className="wa-live-dot" />
                     <strong>EVOLUTION API WHATSAPP SENTINEL</strong>
                   </div>
-                  <span className="wa-hud-inst">Instancia: <code>renace</code> · Conexión Segura 24/7</span>
+                  <span className="wa-hud-sub">Instancia: <code>renace</code> · Conexión Segura 24/7</span>
                 </div>
               </div>
+
               <button
                 type="button"
-                className="wa-test-dispatch-btn"
+                className={`wa-test-trigger-btn ${waTestSending ? 'sending' : ''} ${waTestSuccess ? 'success' : ''}`}
                 onClick={handleTestWhatsAppNotification}
                 disabled={waTestSending}
               >
-                {waTestSending ? 'Enviando...' : waTestSuccess ? '✓ ¡Alerta Despachada!' : '📲 Probar Notificación'}
+                {waTestSending ? 'Enviando...' : waTestSuccess ? '✓ Notificación Enviada' : '📲 Probar Notificación'}
               </button>
             </div>
 
-            <div className="wa-hud-messages-box">
-              <div className="wa-hud-bubble signal">
-                <div className="bubble-top">
-                  <span className="badge-signal">🚨 SEÑAL GEMINI QUANT LIVE</span>
-                  <span className="bubble-time">Ahora</span>
-                </div>
-                <div className="bubble-body">
-                  <strong>{activeAsset.symbol}:</strong> Señal de <strong>COMPRA (BUY)</strong> confirmada a ${activeAsset.price.toFixed(2)}.
-                  <div className="bubble-metrics">
-                    <span>🛑 SL: ${(activeAsset.price * 0.985).toFixed(2)}</span>
-                    <span>🎯 TP: ${(activeAsset.price * 1.03).toFixed(2)}</span>
-                    <span>📊 R:R 1:3</span>
-                  </div>
-                </div>
+            {/* Live Message Preview Feed */}
+            <div className="wa-hud-feed-card">
+              <div className="wa-feed-top">
+                <span className="wa-badge-signal">🚨 SEÑAL GEMINI 3.6 QUANT LIVE</span>
+                <span className="wa-time-tag">Ahora</span>
               </div>
+              <p className="wa-feed-body">
+                <strong>{activeAsset.symbol}:</strong> Señal de <strong>COMPRA (BUY)</strong> confirmada a ${activeAsset.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}.
+                <br />
+                🎯 SL: ${(activeAsset.price * 0.985).toFixed(2)} | 🏁 TP: ${(activeAsset.price * 1.03).toFixed(2)} | 📊 R:R 1:3
+              </p>
+            </div>
 
-              <div className="wa-hud-bubble sentinel">
-                <div className="bubble-top">
-                  <span className="badge-sentinel">⚠️ CENTINELA TOPSTEP & TOPE DE CUENTA</span>
-                  <span className="bubble-time">Auto</span>
-                </div>
-                <div className="bubble-body">
-                  <strong>Vigilancia Activa de Pérdida Diaria (-$2,000):</strong> Si tu cuenta roza el tope diario permitido, el bot congela órdenes impulsivas y envía alerta urgente a tu WhatsApp para proteger tu fondeo.
-                </div>
+            {/* Topstep Rule Sentinel Alert */}
+            <div className="wa-hud-feed-card topstep-alert-card">
+              <div className="wa-feed-top">
+                <span className="wa-badge-risk">⚠️ CENTINELA TOPSTEP & TOPE DE CUENTA</span>
+                <span className="wa-time-tag">Auto</span>
               </div>
+              <p className="wa-feed-body">
+                <strong>Vigilancia Activa de Pérdida Diaria (-$2,000):</strong> Si tu cuenta roza el tope diario permitido, el bot congela órdenes impulsivas y envía alerta urgente a tu WhatsApp para proteger tu fondeo.
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Right Hero Column: Live Candlestick Trading Station or Login Drawer */}
-        <div className="portal-trading-station-column">
+        {/* Right Hero Column: Interactive Live Chart / Login Drawer */}
+        <div className="portal-auth-column">
           {showLoginDrawer ? (
-            /* Login Box View */
-            <div className="portal-login-box animated-fade">
+            /* Traditional Account Login Drawer */
+            <div className="portal-login-box">
               <div className="login-box-header">
-                <div className="login-badge-tag">ACCESO INSTITUCIONAL</div>
-                <h3>Iniciar Sesión</h3>
-                <p className="login-sub">Ingresa a tu cuenta de fondeo o broker sincronizado.</p>
+                <h2>Acceso Institucional</h2>
+                <p>Ingresa a tu terminal de trading algorítmico</p>
               </div>
 
-              {loggedOut && (
-                <div className="inline-alert" role="status">
-                  Has cerrado sesión exitosamente.
-                </div>
-              )}
-              {expired && (
-                <div className="inline-alert warning" role="alert">
-                  Tu sesión expiró. Por favor ingresa de nuevo.
-                </div>
-              )}
-              {error && (
-                <div className="inline-alert danger" role="alert">
-                  {error}
-                </div>
-              )}
+              {error && <div className="portal-error-banner">{error}</div>}
 
-              <form onSubmit={handleSubmit} className="portal-login-form">
+              <form onSubmit={handleSubmit} className="portal-form">
                 <div className="form-field-wrap">
-                  <label htmlFor="username">Usuario o Correo</label>
+                  <label htmlFor="username">Usuario</label>
                   <input
                     id="username"
                     type="text"
@@ -488,7 +636,7 @@ function Login() {
             <div className="landing-live-chart-station">
               {/* Asset Selector Tabs */}
               <div className="station-asset-tabs">
-                {Object.entries(CRYPTO_MARKET).map(([k, a]) => (
+                {Object.entries(marketData).map(([k, a]) => (
                   <button
                     key={k}
                     type="button"
@@ -507,9 +655,9 @@ function Login() {
                   <div className="station-title-row">
                     <span className="station-symbol-bold">{activeAsset.symbol}</span>
                     <span className="station-name-pill">{activeAsset.name}</span>
-                    <span className="station-badge-live">EN VIVO</span>
+                    <span className="station-badge-live">FEED REAL</span>
                   </div>
-                  <div className="station-price-huge">
+                  <div className={`station-price-huge ${priceFlash[selectedAssetKey] ? `flash-${priceFlash[selectedAssetKey]}` : ''}`}>
                     ${activeAsset.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     <span className={`station-pct ${activeAsset.isPos ? 'pos' : 'neg'}`}>{activeAsset.change}</span>
                   </div>
@@ -527,8 +675,8 @@ function Login() {
                 <svg className="live-candle-svg" viewBox="0 0 500 220" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="chartGlowArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00d4aa" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#00d4aa" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="#00e599" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#00e599" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
@@ -538,48 +686,55 @@ function Login() {
                   <line x1="0" y1="165" x2="500" y2="165" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
 
                   {/* Fibonacci Retracement Levels */}
-                  <line x1="0" y1="85" x2="500" y2="85" stroke="rgba(250,204,21,0.35)" strokeDasharray="4 2" />
-                  <text x="420" y="80" fill="#facc15" fontSize="9" fontFamily="monospace">FIBO 61.8%</text>
+                  <line x1="0" y1="85" x2="500" y2="85" stroke="rgba(245, 158, 11, 0.35)" strokeDasharray="4 4" />
+                  <text x="440" y="82" fill="rgba(245, 158, 11, 0.7)" fontSize="9" fontFamily="monospace">FIB 61.8%</text>
 
-                  {/* EMA 20 & EMA 50 Curves */}
+                  {/* EMA 20 line (Cyan) */}
                   <path
-                    d="M 20 160 Q 140 130 260 115 T 480 75"
+                    d="M 20,165 Q 120,140 240,115 T 480,75"
                     fill="none"
-                    stroke="#00d4aa"
+                    stroke="#00b4d8"
                     strokeWidth="2"
-                    strokeOpacity="0.85"
-                  />
-                  <path
-                    d="M 20 180 Q 140 160 260 145 T 480 110"
-                    fill="none"
-                    stroke="#6366f1"
-                    strokeWidth="1.5"
-                    strokeOpacity="0.7"
+                    strokeDasharray="1 0"
                   />
 
-                  {/* Candlesticks */}
-                  {activeAsset.candles.map((val, idx) => {
-                    const min = Math.min(...activeAsset.candles) * 0.998;
-                    const max = Math.max(...activeAsset.candles) * 1.002;
-                    const range = max - min || 1;
-                    const normY = 190 - ((val - min) / range) * 140;
-                    const x = 35 + idx * 58;
-                    const isBull = idx === 0 || val >= activeAsset.candles[idx - 1];
-                    const barHeight = Math.max(12, Math.abs(val - (activeAsset.candles[idx - 1] || val)) * 0.8 + 10);
-                    const color = isBull ? '#00e68a' : '#ff4d6a';
+                  {/* Area fill */}
+                  <path
+                    d="M 20,175 Q 120,150 240,125 T 480,85 L 480,220 L 20,220 Z"
+                    fill="url(#chartGlowArea)"
+                  />
+
+                  {/* Candlestick Bars */}
+                  {activeAsset.candles.map((price, idx) => {
+                    const x = 35 + idx * 60;
+                    const prevPrice = idx > 0 ? activeAsset.candles[idx - 1] : price;
+                    const isGreen = price >= prevPrice;
+                    const minP = Math.min(...activeAsset.candles);
+                    const maxP = Math.max(...activeAsset.candles);
+                    const range = maxP - minP || 1;
+                    const normalizedY = 175 - ((price - minP) / range) * 110;
+                    const candleHeight = Math.max(16, Math.abs(price - prevPrice) * 0.4);
 
                     return (
-                      <g key={idx} className="svg-candle-group">
-                        <line x1={x + 10} y1={normY - 14} x2={x + 10} y2={normY + barHeight + 14} stroke={color} strokeWidth="1.5" />
+                      <g key={idx}>
+                        {/* Candle Wick */}
+                        <line
+                          x1={x + 10}
+                          y1={normalizedY - 14}
+                          x2={x + 10}
+                          y2={normalizedY + candleHeight + 14}
+                          stroke={isGreen ? '#00e599' : '#ff4d6a'}
+                          strokeWidth="1.5"
+                        />
+                        {/* Candle Body */}
                         <rect
                           x={x}
-                          y={normY}
+                          y={normalizedY}
                           width="20"
-                          height={barHeight}
+                          height={candleHeight}
                           rx="3"
-                          fill={color}
-                          fillOpacity="0.85"
-                          stroke={color}
+                          fill={isGreen ? '#00e599' : '#ff4d6a'}
+                          stroke={isGreen ? '#5eead4' : '#ff758f'}
                           strokeWidth="1"
                         />
                       </g>
@@ -587,30 +742,36 @@ function Login() {
                   })}
                 </svg>
 
-                {/* Floating Signal Overlay */}
-                <div className="chart-floating-signal-tag">
-                  <span className="dot-radar-green" />
-                  <span>SEÑAL QUANT GEMINI: <strong>LONG / COMPRA</strong> (89% CONFIANZA)</span>
+                <div className="chart-floating-indicator">
+                  <span className="indicator-dot" />
+                  <span>SEÑAL QUANT GEMINI 3.6: LONG / COMPRA (91% CONFIANZA)</span>
                 </div>
               </div>
 
-              {/* Station Quick Order Trigger to Launch Demo with pre-fill */}
-              <div className="station-order-bar">
+              {/* 1-Click Execution Triggers on Landing */}
+              <div className="station-quick-actions">
                 <button
                   type="button"
-                  className="station-btn buy"
+                  className="quick-trade-trigger buy"
                   onClick={handleDemoLogin}
+                  title="Ejecutar Compra Inmediata"
                 >
-                  <span>⚡ COMPRAR 1x {selectedAssetKey}</span>
-                  <strong>${activeAsset.price.toLocaleString()}</strong>
+                  <div className="qt-top">
+                    <span>⚡ COMPRAR 1x {selectedAssetKey}</span>
+                  </div>
+                  <div className="qt-price">${activeAsset.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                 </button>
+
                 <button
                   type="button"
-                  className="station-btn sell"
+                  className="quick-trade-trigger sell"
                   onClick={handleDemoLogin}
+                  title="Ejecutar Venta Inmediata"
                 >
-                  <span>⚡ VENDER 1x {selectedAssetKey}</span>
-                  <strong>${activeAsset.price.toLocaleString()}</strong>
+                  <div className="qt-top">
+                    <span>⚡ VENDER 1x {selectedAssetKey}</span>
+                  </div>
+                  <div className="qt-price">${activeAsset.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                 </button>
               </div>
             </div>
@@ -618,59 +779,59 @@ function Login() {
         </div>
       </div>
 
-      {/* 4 Ultra-Luxury 3D Feature Pillars */}
-      <section className="portal-3d-features-section">
+      {/* ── 4 LUXURY 3D TECH CARDS SECTION ── */}
+      <section className="features-quad-section">
         <div className="section-title-wrap">
-          <span className="section-badge-pill">INFRAESTRUCTURA INSTITUCIONAL 2030</span>
-          <h2>Tecnología de Grado Cuántico para Traders Profesionales</h2>
-          <p>Potenciado por Google Gemini AI, notificaciones móviles y conectividad directa a mercados CME y Cripto.</p>
+          <span className="section-eyebrow">TECNOLOGÍA DE GRADO INSTITUCIONAL</span>
+          <h2>Ecosistema de Trading Cuántico Multi-Activo</h2>
+          <p>Potenciado por Google Gemini 3.6, WhatsApp Evolution API y Cobertura de Reglas TopStep</p>
         </div>
 
-        <div className="features-3d-grid">
-          {/* Card 1: Gemini AI 3D Core */}
+        <div className="features-quad-grid">
+          {/* Card 1: Gemini 3.6 AI Core */}
           <div className="feature-3d-card">
-            <div className="card-3d-image-wrap">
+            <div className="card-3d-media-wrap">
               <img
                 src="/assets/3d/gemini_core.jpg"
-                alt="3D Quantum Neural Core"
+                alt="3D Neural Core Gemini 3.6"
                 className="card-3d-img"
               />
-              <div className="img-glow-overlay" />
+              <div className="img-glow-overlay ai" />
             </div>
             <div className="card-3d-body">
-              <span className="card-tag gemini">GOOGLE GEMINI 2.0 AI</span>
-              <h3>Quant Engine Cognitivo</h3>
+              <span className="card-tag ai">NÚCLEO NEURONAL QUANT</span>
+              <h3>Google Gemini 3.6 Cognition</h3>
               <p>
-                Analiza en sub-segundos la liquidez, Fair Value Gaps (FVG) y divergencias para dar el dictamen exacto de <strong>cuándo invertir o esperar</strong> con Stop Loss y Take Profit milimétricos.
+                Análisis cuantitativo de Fair Value Gaps (FVG), barridos de liquidez y divergencias RSI en tiempo real con recomendaciones ejecutivas de entrada, SL y TP.
               </p>
             </div>
           </div>
 
-          {/* Card 2: WhatsApp Sentinel 3D */}
+          {/* Card 2: WhatsApp Sentinel */}
           <div className="feature-3d-card">
-            <div className="card-3d-image-wrap">
+            <div className="card-3d-media-wrap">
               <img
                 src="/assets/3d/whatsapp_sentinel.jpg"
                 alt="3D WhatsApp Sentinel"
                 className="card-3d-img"
               />
-              <div className="img-glow-overlay whatsapp" />
+              <div className="img-glow-overlay wa" />
             </div>
             <div className="card-3d-body">
-              <span className="card-tag whatsapp">EVOLUTION API WHATSAPP</span>
-              <h3>Alertas & Centinela de Tope</h3>
+              <span className="card-tag wa">EVOLUTION API</span>
+              <h3>Centinela WhatsApp & TopStep</h3>
               <p>
-                Notificaciones en tiempo real a tu smartphone con parámetros de entrada y <strong>bloqueo instantáneo al rozar el límite de pérdida diaria Topstep (-$2,000)</strong> para proteger tu capital.
+                Alertas instantáneas enviadas a tu WhatsApp en milisegundos con disparo de pánico y bloqueo automático si la pérdida diaria se aproxima a -$2,000 USD.
               </p>
             </div>
           </div>
 
-          {/* Card 3: Crypto & Futures 3D */}
+          {/* Card 3: Crypto & Futures Markets */}
           <div className="feature-3d-card">
-            <div className="card-3d-image-wrap">
+            <div className="card-3d-media-wrap">
               <img
                 src="/assets/3d/crypto_chart.jpg"
-                alt="3D Crypto & Futures Chart"
+                alt="3D Crypto Market"
                 className="card-3d-img"
               />
               <div className="img-glow-overlay crypto" />

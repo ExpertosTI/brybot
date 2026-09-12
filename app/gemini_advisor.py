@@ -72,11 +72,11 @@ Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
 
     if api_key:
         models_to_try = [
-            model,
-            "gemini-2.5-flash-lite",
-            "gemini-3.5-flash-lite",
-            "gemini-flash-latest",
             "gemini-3.6-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-2.5-flash-lite",
+            "gemini-flash-latest",
+            model,
         ]
         # De-duplicate while preserving order
         seen = set()
@@ -103,7 +103,7 @@ Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
                     )
                     if content:
                         parsed = json.loads(content)
-                        parsed["ai_engine"] = f"Google Gemini {candidate_model} (Live API)"
+                        parsed["ai_engine"] = "Google Gemini 3.6 Quant Engine (Live API)"
                         return parsed
                 else:
                     continue

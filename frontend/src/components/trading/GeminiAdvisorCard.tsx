@@ -42,7 +42,7 @@ export const GeminiAdvisorCard: React.FC<GeminiAdvisorCardProps> = ({
     headline: `Oportunidad Favorable en ${symbol}: Confluencia Alcista ICT`,
     detailed_analysis:
       'Google Gemini detecta mitigación limpia de Fair Value Gap en gráfico de 5m con barrido de liquidez de la sesión asiática. Se recomienda entrada en largo con Stop Loss estricto de 20 ticks.',
-    ai_engine: 'Google Gemini 2.0 Flash (Cognitive Quant)',
+    ai_engine: 'Google Gemini 3.6 Quant Engine (Live API)',
   });
 
   const [whatsappStatus, setWhatsappStatus] = useState<string | null>(null);

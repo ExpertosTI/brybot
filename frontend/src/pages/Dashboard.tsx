@@ -45,7 +45,7 @@ export function Dashboard() {
       id: '2',
       time: new Date().toLocaleTimeString(),
       type: 'structure',
-      message: 'Google Gemini 2.0 AI Quant Engine conectado y monitoreando estructura ICT.',
+      message: 'Google Gemini 3.6 AI Quant Engine conectado y monitoreando estructura ICT.',
     },
     {
       id: '3',
