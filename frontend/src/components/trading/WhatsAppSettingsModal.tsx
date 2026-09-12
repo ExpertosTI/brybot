@@ -7,8 +7,8 @@ interface WhatsAppSettingsModalProps {
 }
 
 export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ isOpen, onClose }) => {
-  const [notifyNumbers, setNotifyNumbers] = useState('18494577463');
-  const [instance, setInstance] = useState('renace');
+  const [notifyNumbers, setNotifyNumbers] = useState('8093487921, 18494577463');
+  const [instance, setInstance] = useState('8093487921');
   const [apiKey, setApiKey] = useState('');
   const [apiUrl, setApiUrl] = useState('https://evoapi.renace.tech');
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -27,8 +27,8 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
     try {
       const res = await api.get('/analysis/whatsapp-settings');
       if (res.data?.config) {
-        setNotifyNumbers(res.data.config.notify_numbers || '18494577463');
-        setInstance(res.data.config.instance || 'renace');
+        setNotifyNumbers(res.data.config.notify_numbers || '8093487921, 18494577463');
+        setInstance(res.data.config.instance || '8093487921');
         setApiUrl(res.data.config.url || 'https://evoapi.renace.tech');
         setHasApiKey(res.data.config.has_api_key);
       }
@@ -78,10 +78,10 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
         type: 'test',
         recipient: notifyNumbers.split(',')[0].trim(),
       });
-      if (res.data?.status === 'sent' || res.data?.status === 'sent_fallback') {
-        showToast(`✅ Mensaje enviado a ${res.data.recipient}! Revisa tu WhatsApp.`, 'success');
+      if (res.data?.status === 'completed' || res.data?.status === 'sent' || res.data?.status === 'sent_fallback') {
+        showToast(`✅ Mensaje enviado! Revisa tu WhatsApp en ${notifyNumbers.split(',')[0].trim()}.`, 'success');
       } else if (res.data?.status === 'simulated') {
-        showToast(`⚠️ Modo Simulado: Guarda tu API Key para enviar en vivo.`, 'info');
+        showToast(`⚠️ Modo Simulado: Guarda tu API Key de Evolution para enviar en vivo.`, 'info');
       } else {
         showToast(`❌ Error: ${res.data?.error || 'No se pudo enviar'}`, 'error');
       }
@@ -97,8 +97,8 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
         recipient: notifyNumbers.split(',')[0].trim(),
         force: true,
       });
-      if (res.data?.status === 'sent') {
-        showToast('📈 Resumen de Mercado enviado a tu WhatsApp!', 'success');
+      if (res.data?.status === 'sent' || res.data?.status === 'completed') {
+        showToast('📈 Resumen del Mercado enviado a tu WhatsApp!', 'success');
       } else {
         showToast('❌ Error al enviar el pulso de mercado.', 'error');
       }
@@ -134,7 +134,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
             <span className="modal-icon-glow">📲</span>
             <div>
               <h3>Ajustes de Notificaciones WhatsApp</h3>
-              <p className="modal-subtitle">Configuración de Evolution API & Señales de Mercado Real</p>
+              <p className="modal-subtitle">Instancia 8093487921 · Evolution API & Señales de Mercado</p>
             </div>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose} title="Cerrar">
@@ -154,9 +154,9 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
             <div className="status-indicator-left">
               <span className={`status-dot-pulse ${instanceStatus?.is_connected ? 'active' : 'warn'}`} />
               <div className="status-info-text">
-                <span className="status-label">Estado de Evolution API:</span>
+                <span className="status-label">ESTADO DE INSTANCIA:</span>
                 <strong className={`status-val ${instanceStatus?.is_connected ? 'pos' : 'warn'}`}>
-                  {instanceStatus?.message || 'Verificando estado...'}
+                  {instanceStatus?.message || `Instancia '${instance}' activa`}
                 </strong>
               </div>
             </div>
@@ -173,16 +173,16 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
 
           {/* WhatsApp Phone Numbers */}
           <div className="form-group-custom">
-            <label>
-              <span>📱 Número(s) de WhatsApp para Alertas</span>
-              <span className="input-hint">Formato internacional (ej. 18494577463)</span>
-            </label>
+            <div className="field-label-row">
+              <label className="field-title">📱 Número(s) de WhatsApp para Alertas</label>
+              <span className="field-hint-tag">Ej: 8093487921, 18494577463</span>
+            </div>
             <input
               type="text"
               className="topstep-input"
               value={notifyNumbers}
               onChange={(e) => setNotifyNumbers(e.target.value)}
-              placeholder="18494577463"
+              placeholder="8093487921, 18494577463"
               required
             />
             <p className="field-help-note">
@@ -193,18 +193,22 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
           {/* Instance Name & API URL */}
           <div className="form-row-two-col">
             <div className="form-group-custom">
-              <label>Nombre de Instancia</label>
+              <div className="field-label-row">
+                <label className="field-title">Nombre de Instancia</label>
+              </div>
               <input
                 type="text"
                 className="topstep-input"
                 value={instance}
                 onChange={(e) => setInstance(e.target.value)}
-                placeholder="renace"
+                placeholder="8093487921"
                 required
               />
             </div>
             <div className="form-group-custom">
-              <label>URL Evolution API</label>
+              <div className="field-label-row">
+                <label className="field-title">URL Evolution API</label>
+              </div>
               <input
                 type="url"
                 className="topstep-input"
@@ -218,10 +222,12 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
 
           {/* API Key */}
           <div className="form-group-custom">
-            <label>
-              <span>Evolution API Key {hasApiKey && <span className="key-configured-tag">● Configurada</span>}</span>
-              <span className="input-hint">Global API Key de tu servidor Evolution</span>
-            </label>
+            <div className="field-label-row">
+              <label className="field-title">
+                Evolution API Key {hasApiKey && <span className="key-configured-tag">● Configurada</span>}
+              </label>
+              <span className="field-hint-tag">Global API Key de renace.tech</span>
+            </div>
             <input
               type="password"
               className="topstep-input"

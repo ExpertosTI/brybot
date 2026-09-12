@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 EVOLUTION_CONFIG = {
     "url": os.getenv("EVOLUTION_API_URL", "https://evoapi.renace.tech").rstrip("/"),
     "api_key": os.getenv("EVOLUTION_API_KEY", ""),
-    "instance": os.getenv("EVOLUTION_INSTANCE", "renace"),
-    "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS", "18494577463"),
+    "instance": os.getenv("EVOLUTION_INSTANCE", "8093487921"),
+    "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS", "8093487921, 18494577463"),
 }
 
 
@@ -43,11 +43,11 @@ def update_evolution_config(
             EVOLUTION_CONFIG["api_key"] = api_key
             os.environ["EVOLUTION_API_KEY"] = api_key
     if instance:
-        EVOLUTION_CONFIG["instance"] = instance
-        os.environ["EVOLUTION_INSTANCE"] = instance
+        EVOLUTION_CONFIG["instance"] = instance.strip()
+        os.environ["EVOLUTION_INSTANCE"] = EVOLUTION_CONFIG["instance"]
     if notify_numbers:
-        EVOLUTION_CONFIG["notify_numbers"] = notify_numbers
-        os.environ["WHATSAPP_NOTIFY_NUMBERS"] = notify_numbers
+        EVOLUTION_CONFIG["notify_numbers"] = notify_numbers.strip()
+        os.environ["WHATSAPP_NOTIFY_NUMBERS"] = EVOLUTION_CONFIG["notify_numbers"]
 
     return get_evolution_config()
 
@@ -63,31 +63,31 @@ def check_evolution_instance_status() -> Dict[str, Any]:
             "status": "warning",
             "state": "unconfigured",
             "is_connected": False,
-            "message": "Evolution API Key no configurada. Ingresa tu API Key en Ajustes.",
+            "message": f"Instancia '{instance}' configurada. Ingresa tu Evolution API Key para verificar conexión.",
         }
 
     endpoint = f"{url}/instance/connectionState/{instance}"
     headers = {"apikey": api_key}
 
     try:
-        res = requests.get(endpoint, headers=headers, timeout=5)
+        res = requests.get(endpoint, headers=headers, timeout=6)
         if res.status_code == 200:
             data = res.json()
             state = data.get("instance", {}).get("state") or data.get("state", "unknown")
-            is_connected = state.lower() == "open"
+            is_connected = str(state).lower() == "open"
             return {
                 "status": "success",
                 "state": state,
                 "is_connected": is_connected,
                 "raw": data,
-                "message": f"Instancia '{instance}': {state.upper()}",
+                "message": f"Instancia '{instance}': {state.upper()} ({'🟢 Conectado' if is_connected else '🟡 Desconectado'})",
             }
         elif res.status_code == 401:
             return {
                 "status": "error",
                 "state": "unauthorized",
                 "is_connected": False,
-                "message": "API Key inválida o no autorizada en Evolution API.",
+                "message": "API Key de Evolution API incorrecta o no autorizada.",
             }
         elif res.status_code == 404:
             return {
@@ -102,7 +102,7 @@ def check_evolution_instance_status() -> Dict[str, Any]:
                 "state": "http_error",
                 "status_code": res.status_code,
                 "is_connected": False,
-                "message": f"Error del servidor Evolution API ({res.status_code}): {res.text[:200]}",
+                "message": f"Error Evolution API ({res.status_code}): {res.text[:200]}",
             }
     except Exception as exc:
         return {
@@ -116,17 +116,26 @@ def check_evolution_instance_status() -> Dict[str, Any]:
 def format_whatsapp_number(number: str) -> str:
     """Sanitizes phone numbers for Evolution API."""
     cleaned = re.sub(r"[^\d]", "", number or "")
-    if len(cleaned) == 10 and cleaned.startswith("8"):
+    if len(cleaned) == 10 and (cleaned.startswith("809") or cleaned.startswith("829") or cleaned.startswith("849")):
         cleaned = "1" + cleaned
     return cleaned
 
 
 def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[str, Any]:
     """Sends a WhatsApp message via Evolution API."""
-    default_recipients = EVOLUTION_CONFIG["notify_numbers"].split(",")
-    target_num = format_whatsapp_number(recipient or default_recipients[0])
-    if not target_num:
-        return {"status": "error", "message": "No valid phone number provided."}
+    recipients_to_send = []
+    if recipient:
+        formatted = format_whatsapp_number(recipient)
+        if formatted:
+            recipients_to_send.append(formatted)
+    else:
+        for num in EVOLUTION_CONFIG["notify_numbers"].split(","):
+            formatted = format_whatsapp_number(num.strip())
+            if formatted and formatted not in recipients_to_send:
+                recipients_to_send.append(formatted)
+
+    if not recipients_to_send:
+        return {"status": "error", "message": "No valid phone numbers configured."}
 
     url = f"{EVOLUTION_CONFIG['url']}/message/sendText/{EVOLUTION_CONFIG['instance']}"
     api_key = EVOLUTION_CONFIG["api_key"]
@@ -134,25 +143,36 @@ def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[st
         "apikey": api_key,
         "Content-Type": "application/json",
     }
-    payload = {
-        "number": target_num,
-        "text": text,
-        "delay": 1200,
-    }
 
-    try:
-        if api_key:
-            res = requests.post(url, json=payload, headers=headers, timeout=8)
-            if 200 <= res.status_code < 300:
-                return {"status": "sent", "recipient": target_num, "response": res.json()}
-            return {"status": "sent_fallback", "recipient": target_num, "detail": res.text}
-    except Exception as exc:
-        return {"status": "error", "error": str(exc), "recipient": target_num}
+    results = []
+    for target_num in recipients_to_send:
+        payload = {
+            "number": target_num,
+            "text": text,
+            "delay": 1200,
+        }
+
+        try:
+            if api_key:
+                res = requests.post(url, json=payload, headers=headers, timeout=8)
+                if 200 <= res.status_code < 300:
+                    results.append({"status": "sent", "recipient": target_num, "response": res.json()})
+                else:
+                    results.append({"status": "sent_fallback", "recipient": target_num, "detail": res.text})
+            else:
+                results.append({
+                    "status": "simulated",
+                    "recipient": target_num,
+                    "message": "Message dispatched via Evolution API mock channel (Add API Key in settings to send live)",
+                })
+        except Exception as exc:
+            results.append({"status": "error", "error": str(exc), "recipient": target_num})
 
     return {
-        "status": "simulated",
-        "recipient": target_num,
-        "message": "Message dispatched via Evolution API mock channel (Add API Key in settings to send live)",
+        "status": "completed",
+        "instance": EVOLUTION_CONFIG["instance"],
+        "total_recipients": len(recipients_to_send),
+        "results": results,
     }
 
 

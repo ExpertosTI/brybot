@@ -6445,6 +6445,58 @@ html, body {
   color: #e2e8f0;
 }
 
+/* ── Modal Form Groups & Field Labels ───────────────────────── */
+.form-group-custom {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.1rem;
+}
+
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.field-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #cfd8e3;
+  margin: 0;
+}
+
+.field-hint-tag {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #8e9eb5;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.field-help-note {
+  font-size: 0.72rem;
+  color: #8e9eb5;
+  margin-top: 0.35rem;
+  margin-bottom: 0;
+  line-height: 1.35;
+}
+
+.form-row-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .form-row-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 
 
