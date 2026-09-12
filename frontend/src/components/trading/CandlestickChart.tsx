@@ -695,7 +695,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
           {/* AI Limits Suggestion Modal / HUD (Google Gemini 3.6) */}
           {showAiModal && aiBox && (
-            <div className="ai-limits-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="ai-limits-modal-card"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
+              onMouseMove={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+            >
               <div className="ai-modal-top">
                 <div className="ai-badge-left">
                   <span className="dot-ai-glow" />

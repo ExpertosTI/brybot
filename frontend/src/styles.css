@@ -5595,6 +5595,8 @@ button.danger:hover {
   right: 15px;
   width: 340px;
   max-width: 90%;
+  max-height: calc(100% - 30px);
+  overflow-y: auto;
   background: rgba(8, 14, 28, 0.95);
   backdrop-filter: blur(35px);
   -webkit-backdrop-filter: blur(35px);
@@ -6192,6 +6194,14 @@ button.danger:hover {
     overflow-x: auto;
     scrollbar-width: none;
     padding-bottom: 0.25rem;
+  }
+
+  .signal-targets-grid, .structure-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rules-checklist-grid {
+    grid-template-columns: 1fr;
   }
 }
 
