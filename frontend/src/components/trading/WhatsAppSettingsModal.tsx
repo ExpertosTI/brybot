@@ -7,8 +7,8 @@ interface WhatsAppSettingsModalProps {
 }
 
 export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ isOpen, onClose }) => {
-  const [notifyNumbers, setNotifyNumbers] = useState('8093487921, 18494577463');
-  const [instance, setInstance] = useState('8093487921');
+  const [notifyNumbers, setNotifyNumbers] = useState('8093487921, 18494577463, 13233837891');
+  const [instance, setInstance] = useState('catagce-renace');
   const [apiKey, setApiKey] = useState('');
   const [apiUrl, setApiUrl] = useState('https://evoapi.renace.tech');
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -27,7 +27,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
     try {
       const res = await api.get('/analysis/whatsapp-settings');
       if (res.data?.config) {
-        setNotifyNumbers(res.data.config.notify_numbers || '8093487921, 18494577463');
+        setNotifyNumbers(res.data.config.notify_numbers || '8093487921, 18494577463, 13233837891');
         setInstance(res.data.config.instance || 'catagce-renace');
         setApiUrl(res.data.config.url || 'https://evoapi.renace.tech');
         setHasApiKey(res.data.config.has_api_key ?? true);
@@ -182,7 +182,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
               className="topstep-input"
               value={notifyNumbers}
               onChange={(e) => setNotifyNumbers(e.target.value)}
-              placeholder="8093487921, 18494577463"
+              placeholder="8093487921, 18494577463, 13233837891"
               required
             />
             <p className="field-help-note">

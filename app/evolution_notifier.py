@@ -23,7 +23,7 @@ EVOLUTION_CONFIG = {
     "url": (os.getenv("EVOLUTION_API_URL") or "https://evoapi.renace.tech").rstrip("/"),
     "api_key": os.getenv("EVOLUTION_API_KEY") or DEFAULT_EVO_KEY,
     "instance": _resolve_instance_name(os.getenv("EVOLUTION_INSTANCE")),
-    "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS") or "8093487921, 18494577463",
+    "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS") or "8093487921, 18494577463, 13233837891",
 }
 
 
@@ -128,7 +128,7 @@ def check_evolution_instance_status() -> Dict[str, Any]:
 def format_whatsapp_number(number: str) -> str:
     """Sanitizes phone numbers for Evolution API."""
     cleaned = re.sub(r"[^\d]", "", number or "")
-    if len(cleaned) == 10 and (cleaned.startswith("809") or cleaned.startswith("829") or cleaned.startswith("849")):
+    if len(cleaned) == 10:
         cleaned = "1" + cleaned
     return cleaned
 
