@@ -257,48 +257,68 @@ export function Dashboard() {
         onToggleBot={() => setIsBotRunning(!isBotRunning)}
       />
 
-      {/* Primary Workspace View Switcher (Desktop & Mobile) */}
-      <div className="px-4 pt-3 flex items-center justify-between gap-3 max-w-[1920px] mx-auto">
-        <div className="flex bg-[#111827] p-1 rounded-xl border border-gray-800 shadow-lg">
-          <button
-            type="button"
-            onClick={() => setViewMode('cockpit')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
-              viewMode === 'cockpit'
-                ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <span>📊</span>
-            <span>Trading Cockpit (En Vivo)</span>
-          </button>
+      {/* Primary Workspace View Switcher (Desktop & Mobile) - Ultra Visible */}
+      <div className="px-4 pt-4 pb-2 max-w-[1920px] mx-auto">
+        <div className="bg-[#0c1222] p-2 rounded-2xl border-2 border-indigo-500/30 shadow-2xl shadow-indigo-950/40 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 pl-2">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs uppercase tracking-wider font-extrabold text-indigo-300">
+              Módulos Institucionales:
+            </span>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setViewMode('historical_patterns')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
-              viewMode === 'historical_patterns'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <span>🏛️</span>
-            <span>Patrones 5-10 Años</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Tab 1: Trading Cockpit */}
+            <button
+              type="button"
+              onClick={() => setViewMode('cockpit')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 border ${
+                viewMode === 'cockpit'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-400 shadow-lg shadow-indigo-500/25 ring-2 ring-indigo-400/40'
+                  : 'bg-[#151c2e] text-gray-300 hover:text-white hover:bg-[#1e293b] border-gray-700/60'
+              }`}
+            >
+              <span className="text-base">📊</span>
+              <span>1. Trading Cockpit (Gráfico & Órdenes)</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setViewMode('macro_sentinel')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
-              viewMode === 'macro_sentinel'
-                ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <span>🌐</span>
-            <span>Macro, Noticias & Sentimiento</span>
-            <span className="text-[10px] bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded font-bold border border-rose-500/30">VIX EN VIVO</span>
-          </button>
+            {/* Tab 2: Patrones 5-10 Años */}
+            <button
+              type="button"
+              onClick={() => setViewMode('historical_patterns')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 border relative ${
+                viewMode === 'historical_patterns'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-lg shadow-purple-500/25 ring-2 ring-purple-400/40'
+                  : 'bg-[#18132b] text-purple-200 hover:text-white hover:bg-[#231a3d] border-purple-500/40'
+              }`}
+            >
+              <span className="text-base">🏛️</span>
+              <span>2. Patrones Históricos 5-10 Años</span>
+              <span className="bg-purple-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-pulse">
+                NUEVO 🔥
+              </span>
+            </button>
+
+            {/* Tab 3: Macro & Noticias */}
+            <button
+              type="button"
+              onClick={() => setViewMode('macro_sentinel')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 border relative ${
+                viewMode === 'macro_sentinel'
+                  ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white border-rose-400 shadow-lg shadow-rose-500/25 ring-2 ring-rose-400/40'
+                  : 'bg-[#24131b] text-rose-200 hover:text-white hover:bg-[#341b27] border-rose-500/40'
+              }`}
+            >
+              <span className="text-base">🌐</span>
+              <span>3. Macro, Noticias & Sentimiento</span>
+              <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                VIX EN VIVO
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
