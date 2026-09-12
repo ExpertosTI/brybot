@@ -100,6 +100,14 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
+
   // 1. Typewriter effect for Demo CTA Button
   useEffect(() => {
     let charIdx = 0;
@@ -597,7 +605,7 @@ export function Login() {
                     type="text"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
-                    placeholder="admin o expertostird@gmail.com"
+                    placeholder="Ingresa tu usuario o correo"
                     autoComplete="username"
                     required
                     disabled={isLoading || isTransitioning}
@@ -611,7 +619,7 @@ export function Login() {
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    placeholder="Tu contraseña (ej: Trading2027@)"
+                    placeholder="••••••••••••"
                     autoComplete="current-password"
                     required
                     disabled={isLoading || isTransitioning}
@@ -769,7 +777,35 @@ export function Login() {
             </div>
           </div>
 
-          {/* Card 2: WhatsApp Sentinel */}
+          {/* Card 2: 10-Year Historical Patterns Engine */}
+          <div className="feature-3d-card">
+            <div className="card-3d-body p-6 space-y-3">
+              <span className="card-tag dom">PATRONES 5-10 AÑOS (NUEVO)</span>
+              <h3>Estacionalidad & Afluencia</h3>
+              <p>
+                Base de datos de 10 años en Nasdaq, S&P 500 y Oro. Matriz mes a mes, días con mayor sesgo institucional (Turnaround Tuesday 68%) y ventanas de alta plusvalía.
+              </p>
+              <div className="pt-2 flex items-center gap-2 text-xs text-emerald-400 font-bold">
+                <span>✓ Win Rate Backtested 74.8%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Macroeconomic & VIX Sentinel */}
+          <div className="feature-3d-card">
+            <div className="card-3d-body p-6 space-y-3">
+              <span className="card-tag wa">MACRO & SENTIMIENTO REAL</span>
+              <h3>Centinela de Noticias & VIX</h3>
+              <p>
+                Calendario económico en tiempo real (CPI, NFP, Tasas FOMC) con autobloqueo de noticias de alto impacto y medidores de VIX, DXY y Fear & Greed en vivo.
+              </p>
+              <div className="pt-2 flex items-center gap-2 text-xs text-rose-400 font-bold">
+                <span>🛡️ Protección de Noticias Rojas</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: WhatsApp Sentinel */}
           <div className="feature-3d-card">
             <div className="card-3d-media-wrap">
               <img
@@ -784,53 +820,6 @@ export function Login() {
               <h3>Centinela WhatsApp & TopStep</h3>
               <p>
                 Alertas instantáneas enviadas a tu WhatsApp en milisegundos con disparo de pánico y bloqueo automático si la pérdida diaria se aproxima a -$2,000 USD.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 3: Crypto & Futures Markets */}
-          <div className="feature-3d-card">
-            <div className="card-3d-media-wrap">
-              <img
-                src="/assets/3d/crypto_chart.jpg"
-                alt="3D Crypto Market"
-                className="card-3d-img"
-              />
-              <div className="img-glow-overlay crypto" />
-            </div>
-            <div className="card-3d-body">
-              <span className="card-tag chart">MUNDO CRIPTO & FUTUROS</span>
-              <h3>Velas Japonesas & Fibonacci</h3>
-              <p>
-                TradingView Lightweight Charts con velas Heikin Ashi, retrocesos de Fibonacci, EMAs 20/50 y cotizaciones en vivo de Bitcoin, Ethereum, Solana, NASDAQ y S&P 500.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 4: CME DOM Level II */}
-          <div className="feature-3d-card">
-            <div className="card-dom-mini-table">
-              <div className="mini-dom-row ask">
-                <span>142</span><strong>19,756.00</strong><span>Ask Limit</span>
-              </div>
-              <div className="mini-dom-row ask">
-                <span>198</span><strong>19,755.50</strong><span>Ask Limit</span>
-              </div>
-              <div className="mini-dom-row current">
-                <span>285</span><strong>19,754.50 (Último)</strong><span>Spread 0.25</span>
-              </div>
-              <div className="mini-dom-row bid">
-                <span>210</span><strong>19,753.50</strong><span>Bid Limit</span>
-              </div>
-              <div className="mini-dom-row bid">
-                <span>165</span><strong>19,752.50</strong><span>Bid Limit</span>
-              </div>
-            </div>
-            <div className="card-3d-body">
-              <span className="card-tag dom">LEVEL II DOM CME</span>
-              <h3>Libro de Órdenes Profundo</h3>
-              <p>
-                Visualización de liquidez institucional con profundidad de mercado en tiempo real y colocación de órdenes a 1-clic sobre la escalera de precios.
               </p>
             </div>
           </div>
