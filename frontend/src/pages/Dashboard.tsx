@@ -15,13 +15,14 @@ import { MarketNewsSentiment } from '../components/analytics/MarketNewsSentiment
 import { ActivityFeed, ActivityEvent } from '../components/common/ActivityFeed';
 import { WhatsAppSettingsModal } from '../components/trading/WhatsAppSettingsModal';
 import { HistoricalPatternsView } from '../components/trading/HistoricalPatternsView';
+import { MacroSentinelView } from '../components/trading/MacroSentinelView';
 import { soundEffects } from '../utils/audioEffects';
 
 export function Dashboard() {
   const navigate = useNavigate();
 
-  // Navigation View Mode: 'cockpit' | 'historical_patterns'
-  const [viewMode, setViewMode] = useState<'cockpit' | 'historical_patterns'>('cockpit');
+  // Navigation View Mode: 'cockpit' | 'historical_patterns' | 'macro_sentinel'
+  const [viewMode, setViewMode] = useState<'cockpit' | 'historical_patterns' | 'macro_sentinel'>('cockpit');
 
   // Modal State
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
@@ -282,16 +283,33 @@ export function Dashboard() {
             }`}
           >
             <span>🏛️</span>
-            <span>Patrones 5-10 Años & Afluencia</span>
-            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold border border-emerald-500/30">NUEVO</span>
+            <span>Patrones 5-10 Años</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('macro_sentinel')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
+              viewMode === 'macro_sentinel'
+                ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <span>🌐</span>
+            <span>Macro, Noticias & Sentimiento</span>
+            <span className="text-[10px] bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded font-bold border border-rose-500/30">VIX EN VIVO</span>
           </button>
         </div>
       </div>
 
-      {/* Conditional View: 10-Year Historical Patterns vs Live Trading Cockpit */}
+      {/* Conditional View: 10-Year Historical Patterns vs Macro Sentinel vs Live Trading Cockpit */}
       {viewMode === 'historical_patterns' ? (
         <div className="px-4 py-4 max-w-[1920px] mx-auto">
           <HistoricalPatternsView />
+        </div>
+      ) : viewMode === 'macro_sentinel' ? (
+        <div className="px-4 py-4 max-w-[1920px] mx-auto">
+          <MacroSentinelView />
         </div>
       ) : (
         <>

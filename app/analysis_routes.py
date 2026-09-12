@@ -362,4 +362,39 @@ Responde en formato JSON con la siguiente estructura:
     }
 
 
+@router.get("/macro-calendar")
+def get_macro_calendar_endpoint() -> Dict[str, Any]:
+    """Retrieves real-world high-impact economic calendar events and countdown."""
+    from app.macro_calendar import fetch_live_economic_calendar, check_news_lockout
+    try:
+        events = fetch_live_economic_calendar()
+        lockout = check_news_lockout()
+        return {
+            "status": "success",
+            "events": events,
+            "lockout_status": lockout,
+            "count": len(events),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/market-sentiment")
+def get_market_sentiment_endpoint() -> Dict[str, Any]:
+    """Retrieves real-time VIX, DXY, Crypto Fear & Greed Index, and Intermarket Health."""
+    from app.market_sentiment import fetch_intermarket_metrics
+    try:
+        return fetch_intermarket_metrics()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/news-lockout-status")
+def get_news_lockout_status_endpoint() -> Dict[str, Any]:
+    """Checks if high-impact news protection circuit breaker is active."""
+    from app.macro_calendar import check_news_lockout
+    return check_news_lockout()
+
+
+
 
