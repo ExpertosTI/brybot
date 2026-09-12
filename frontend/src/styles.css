@@ -6,49 +6,49 @@
 
 /* ── Tokens ─────────────────────────────────────────────────── */
 :root {
-  --bg-base: #050810;
-  --bg-main: #080c16;
-  --bg-panel: rgba(10, 16, 28, 0.82);
-  --bg-card: rgba(14, 21, 38, 0.78);
-  --bg-elevated: rgba(18, 26, 46, 0.9);
-  --bg-surface: rgba(22, 32, 56, 0.5);
-  --bg-input: rgba(8, 14, 26, 0.9);
+  --bg-base: #000000;
+  --bg-main: #0a0a0a;
+  --bg-panel: rgba(26, 26, 26, 0.95);
+  --bg-card: rgba(20, 20, 20, 0.85);
+  --bg-elevated: rgba(30, 30, 30, 0.95);
+  --bg-surface: rgba(40, 40, 40, 0.5);
+  --bg-input: rgba(15, 15, 15, 0.9);
 
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-medium: rgba(255, 255, 255, 0.1);
-  --border-accent: rgba(0, 212, 170, 0.3);
-  --border-glow: rgba(0, 212, 170, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.15);
+  --border-accent: rgba(242, 169, 0, 0.3);
+  --border-glow: rgba(242, 169, 0, 0.5);
 
-  --text-main: #e8edf5;
-  --text-secondary: #a0aec0;
-  --text-muted: #64748b;
-  --text-inverse: #050810;
+  --text-main: #ffffff;
+  --text-secondary: #a0aab2;
+  --text-muted: #6b7280;
+  --text-inverse: #000000;
 
-  --accent: #00d4aa;
-  --accent-dim: rgba(0, 212, 170, 0.15);
-  --accent-glow: rgba(0, 212, 170, 0.4);
-  --accent2: #6366f1;
-  --accent2-dim: rgba(99, 102, 241, 0.15);
+  --accent: #f2a900;
+  --accent-dim: rgba(242, 169, 0, 0.15);
+  --accent-glow: rgba(242, 169, 0, 0.4);
+  --accent2: #0099ff;
+  --accent2-dim: rgba(0, 153, 255, 0.15);
 
-  --positive: #00e68a;
-  --positive-dim: rgba(0, 230, 138, 0.12);
-  --negative: #ff4d6a;
-  --negative-dim: rgba(255, 77, 106, 0.12);
-  --warning: #ffb020;
-  --warning-dim: rgba(255, 176, 32, 0.12);
-  --info: #38bdf8;
+  --positive: #00c853;
+  --positive-dim: rgba(0, 200, 83, 0.12);
+  --negative: #ff3b30;
+  --negative-dim: rgba(255, 59, 48, 0.12);
+  --warning: #f2a900;
+  --warning-dim: rgba(242, 169, 0, 0.12);
+  --info: #0099ff;
 
-  --gradient-primary: linear-gradient(135deg, #00d4aa 0%, #6366f1 100%);
-  --gradient-bg: linear-gradient(180deg, #080c16 0%, #0a1020 50%, #060a13 100%);
-  --gradient-card: linear-gradient(145deg, rgba(14, 21, 38, 0.8) 0%, rgba(10, 16, 28, 0.6) 100%);
-  --gradient-buy: linear-gradient(135deg, #00e68a, #00d4aa);
-  --gradient-sell: linear-gradient(135deg, #ff4d6a, #e63956);
+  --gradient-primary: linear-gradient(135deg, #f2a900 0%, #d48800 100%);
+  --gradient-bg: linear-gradient(180deg, #0a0a0a 0%, #111111 50%, #050505 100%);
+  --gradient-card: linear-gradient(145deg, rgba(30, 30, 30, 0.8) 0%, rgba(20, 20, 20, 0.6) 100%);
+  --gradient-buy: linear-gradient(135deg, #00c853, #009624);
+  --gradient-sell: linear-gradient(135deg, #ff3b30, #c62828);
 
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(0, 212, 170, 0.15);
-  --shadow-glow-strong: 0 0 40px rgba(0, 212, 170, 0.25);
+  --shadow-glow: 0 0 20px rgba(242, 169, 0, 0.15);
+  --shadow-glow-strong: 0 0 40px rgba(242, 169, 0, 0.25);
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -60,7 +60,7 @@
   --blur-heavy: blur(40px);
 
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading: 'Outfit', 'Inter', sans-serif;
+  --font-heading: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
