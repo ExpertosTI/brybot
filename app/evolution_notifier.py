@@ -6,19 +6,30 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Config dictionary with runtime dynamic updates
+# Config dictionary with runtime dynamic updates and verified Renace defaults
+DEFAULT_EVO_KEY = "d66888ea1d791329a97c934ea14014dc41c53e001440f74a"
+DEFAULT_EVO_INSTANCE = "catagce-renace"  # Active open instance for 8093487921
+
 EVOLUTION_CONFIG = {
     "url": os.getenv("EVOLUTION_API_URL", "https://evoapi.renace.tech").rstrip("/"),
-    "api_key": os.getenv("EVOLUTION_API_KEY", ""),
-    "instance": os.getenv("EVOLUTION_INSTANCE", "8093487921"),
+    "api_key": os.getenv("EVOLUTION_API_KEY", DEFAULT_EVO_KEY),
+    "instance": os.getenv("EVOLUTION_INSTANCE", DEFAULT_EVO_INSTANCE),
     "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS", "8093487921, 18494577463"),
 }
+
+
+def _resolve_instance_name(instance: str) -> str:
+    """Resolves human-readable phone number instance alias to actual Evolution API instance name."""
+    inst = instance.strip()
+    if inst in ("8093487921", "18093487921", "renace.tech"):
+        return "catagce-renace"
+    return inst
 
 
 def get_evolution_config() -> Dict[str, Any]:
     """Returns current Evolution API settings with masked API key."""
     key = EVOLUTION_CONFIG["api_key"]
-    masked_key = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else ("***" if key else "")
+    masked_key = f"{key[:6]}...{key[-6:]}" if len(key) > 12 else ("***" if key else "")
     return {
         "url": EVOLUTION_CONFIG["url"],
         "instance": EVOLUTION_CONFIG["instance"],
@@ -38,12 +49,11 @@ def update_evolution_config(
     if url:
         EVOLUTION_CONFIG["url"] = url.rstrip("/")
         os.environ["EVOLUTION_API_URL"] = EVOLUTION_CONFIG["url"]
-    if api_key is not None:
-        if api_key != "":
-            EVOLUTION_CONFIG["api_key"] = api_key
-            os.environ["EVOLUTION_API_KEY"] = api_key
+    if api_key is not None and api_key.strip() != "":
+        EVOLUTION_CONFIG["api_key"] = api_key.strip()
+        os.environ["EVOLUTION_API_KEY"] = EVOLUTION_CONFIG["api_key"]
     if instance:
-        EVOLUTION_CONFIG["instance"] = instance.strip()
+        EVOLUTION_CONFIG["instance"] = _resolve_instance_name(instance)
         os.environ["EVOLUTION_INSTANCE"] = EVOLUTION_CONFIG["instance"]
     if notify_numbers:
         EVOLUTION_CONFIG["notify_numbers"] = notify_numbers.strip()
@@ -55,7 +65,7 @@ def update_evolution_config(
 def check_evolution_instance_status() -> Dict[str, Any]:
     """Checks whether the Evolution API instance is online and connected to WhatsApp."""
     url = EVOLUTION_CONFIG["url"]
-    instance = EVOLUTION_CONFIG["instance"]
+    instance = _resolve_instance_name(EVOLUTION_CONFIG["instance"])
     api_key = EVOLUTION_CONFIG["api_key"]
 
     if not api_key:
@@ -79,8 +89,9 @@ def check_evolution_instance_status() -> Dict[str, Any]:
                 "status": "success",
                 "state": state,
                 "is_connected": is_connected,
+                "instance": instance,
                 "raw": data,
-                "message": f"Instancia '{instance}': {state.upper()} ({'🟢 Conectado' if is_connected else '🟡 Desconectado'})",
+                "message": f"Instancia '{instance}' (8093487921): {state.upper()} ({'🟢 Conectado y Listo' if is_connected else '🟡 Desconectado'})",
             }
         elif res.status_code == 401:
             return {
@@ -137,7 +148,8 @@ def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[st
     if not recipients_to_send:
         return {"status": "error", "message": "No valid phone numbers configured."}
 
-    url = f"{EVOLUTION_CONFIG['url']}/message/sendText/{EVOLUTION_CONFIG['instance']}"
+    instance = _resolve_instance_name(EVOLUTION_CONFIG["instance"])
+    url = f"{EVOLUTION_CONFIG['url']}/message/sendText/{instance}"
     api_key = EVOLUTION_CONFIG["api_key"]
     headers = {
         "apikey": api_key,
@@ -170,7 +182,7 @@ def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[st
 
     return {
         "status": "completed",
-        "instance": EVOLUTION_CONFIG["instance"],
+        "instance": instance,
         "total_recipients": len(recipients_to_send),
         "results": results,
     }
