@@ -3,8 +3,7 @@ import json
 import requests
 from typing import Any, Dict, Optional
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+DEFAULT_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
 
@@ -20,6 +19,13 @@ def generate_gemini_trade_advice(
     sym = symbol.upper().strip() if symbol else "NQ"
     tick_size = 0.25 if sym in ("NQ", "MNQ", "ES") else 0.1
     price_fmt = f"${current_price:,.2f}"
+
+    api_key = (
+        os.getenv("GEMINI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+        or DEFAULT_GEMINI_KEY
+    )
+    model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     fvgs = len(structure.get("fair_value_gaps", [])) if structure else 1
     sweeps = len(structure.get("liquidity_sweeps", [])) if structure else 2
@@ -43,10 +49,8 @@ Determina con rigor institucional:
 2. Motivo detallado del comportamiento del mercado y justificación del trade.
 3. Precio de Entrada sugerido.
 4. Stop Loss sugerido (en ticks y precio).
-5. Take Profit sugerido (en ticks y precio).
-6. Ratio Riesgo/Beneficio (mínimo 1:2).
-7. Nivel de Riesgo (Bajo, Medio, Alto).
-8. Resumen para notificación por WhatsApp.
+5. Take Profit sugerido (en ticks y precio con ratio R:R mínimo 1:2).
+6. Mensaje formateado para enviar por WhatsApp al trader.
 
 Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
 {{
@@ -61,36 +65,50 @@ Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
   "risk_reward": "1:2.0",
   "risk_level": "Medio",
   "headline": "Oportunidad de Compra en NASDAQ tras barrido de liquidez",
-  "detailed_analysis": "El precio mitigó el FVG de 5m con RSI rebotando desde sobreventa...",
-  "whatsapp_message": "🚀 *RENACE LAB | SEÑAL NQ*\\nDirección: LONG\\nEntrada: {current_price}\\nSL: {current_price - 5.0}\\nTP: {current_price + 10.0}\\nMotivo: FVG mitigado + Divergencia RSI"
+  "detailed_analysis": "El precio mitigó el FVG con RSI saliendo de sobreventa...",
+  "whatsapp_message": "🚀 *RENACE LAB | SEÑAL NQ*\\nDirección: LONG\\nEntrada: {current_price}\\nSL: {current_price - 5.0}\\nTP: {current_price + 10.0}\\nMotivo: FVG mitigado + Confluencia ICT"
 }}
 """
 
-    if GEMINI_API_KEY:
-        try:
-            url = f"{GEMINI_BASE_URL}/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.2,
-                    "responseMimeType": "application/json",
-                },
-            }
-            res = requests.post(url, json=payload, timeout=8)
-            if res.status_code == 200:
-                data = res.json()
-                content = (
-                    data.get("candidates", [{}])[0]
-                    .get("content", {})
-                    .get("parts", [{}])[0]
-                    .get("text", "")
-                )
-                if content:
-                    parsed = json.loads(content)
-                    parsed["ai_engine"] = "Google Gemini 2.0 Flash (Live)"
-                    return parsed
-        except Exception:
-            pass  # Fall back to algorithmic cognitive analysis
+    if api_key:
+        models_to_try = [
+            model,
+            "gemini-2.5-flash-lite",
+            "gemini-3.5-flash-lite",
+            "gemini-flash-latest",
+            "gemini-3.6-flash",
+        ]
+        # De-duplicate while preserving order
+        seen = set()
+        ordered_models = [m for m in models_to_try if not (m in seen or seen.add(m))]
+
+        for candidate_model in ordered_models:
+            try:
+                url = f"{GEMINI_BASE_URL}/models/{candidate_model}:generateContent?key={api_key}"
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.15,
+                        "responseMimeType": "application/json",
+                    },
+                }
+                res = requests.post(url, json=payload, timeout=7)
+                if res.status_code == 200:
+                    data = res.json()
+                    content = (
+                        data.get("candidates", [{}])[0]
+                        .get("content", {})
+                        .get("parts", [{}])[0]
+                        .get("text", "")
+                    )
+                    if content:
+                        parsed = json.loads(content)
+                        parsed["ai_engine"] = f"Google Gemini {candidate_model} (Live API)"
+                        return parsed
+                else:
+                    continue
+            except Exception:
+                continue
 
     # High-precision algorithmic cognitive fallback if API key is not yet set
     is_bullish = rsi < 45 or (ma_fast > ma_slow)

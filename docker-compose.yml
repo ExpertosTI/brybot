@@ -45,6 +45,11 @@ services:
       TOPSTEP_ACCOUNT_ID: ${TOPSTEP_ACCOUNT_ID:-}
       TRADINGVIEW_API_KEY: ${TRADINGVIEW_API_KEY:-}
       TRADINGVIEW_BASE_URL: ${TRADINGVIEW_BASE_URL:-https://api.tradingview.com}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-https://evoapi.renace.tech}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-renace}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
     networks:
       - brybot_internal
       - RenaceNet
