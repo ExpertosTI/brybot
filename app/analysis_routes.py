@@ -181,7 +181,6 @@ def whatsapp_notify_endpoint(request: WhatsAppNotifyRequest) -> Dict[str, Any]:
             "✅ Notificaciones activas para señales cuantitativas de Google Gemini y alertas de riesgo TopStep.\n"
             "📱 Tu canal directo con el mercado financiero en tiempo real."
         )
-        return send_whatsapp_message(msg, recipient=request.recipient)
     else:
         return notify_trade_signal(
             symbol=request.symbol,
@@ -192,5 +191,36 @@ def whatsapp_notify_endpoint(request: WhatsAppNotifyRequest) -> Dict[str, Any]:
             reason=request.reason,
             recipient=request.recipient,
         )
+
+
+class MarketScanRequest(BaseModel):
+    recipient: Optional[str] = None
+    force: bool = False
+
+
+@router.post("/scan-and-notify")
+def scan_and_notify_endpoint(request: MarketScanRequest) -> Dict[str, Any]:
+    """Scans real market data across all watchlists and dispatches bullish signals to WhatsApp."""
+    try:
+        from app.real_market_scanner import scan_and_notify_opportunities
+        dispatched = scan_and_notify_opportunities(recipient=request.recipient, force=request.force)
+        return {
+            "status": "success",
+            "scanned_assets": ["NQ", "ES", "BTC", "ETH", "SOL", "GC"],
+            "signals_dispatched": len(dispatched),
+            "details": dispatched,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/market-pulse-notify")
+def market_pulse_notify_endpoint(request: MarketScanRequest) -> Dict[str, Any]:
+    """Generates a real-time executive market pulse summary and dispatches to WhatsApp."""
+    try:
+        from app.real_market_scanner import generate_market_pulse_summary
+        return generate_market_pulse_summary(recipient=request.recipient)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
