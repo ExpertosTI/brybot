@@ -16,6 +16,7 @@ import { ActivityFeed, ActivityEvent } from '../components/common/ActivityFeed';
 import { WhatsAppSettingsModal } from '../components/trading/WhatsAppSettingsModal';
 import { HistoricalPatternsView } from '../components/trading/HistoricalPatternsView';
 import { MacroSentinelView } from '../components/trading/MacroSentinelView';
+import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { soundEffects } from '../utils/audioEffects';
 
 export function Dashboard() {
@@ -325,11 +326,15 @@ export function Dashboard() {
       {/* Conditional View: 10-Year Historical Patterns vs Macro Sentinel vs Live Trading Cockpit */}
       {viewMode === 'historical_patterns' ? (
         <div className="px-4 py-4 max-w-[1920px] mx-auto">
-          <HistoricalPatternsView />
+          <ErrorBoundary fallbackTitle="Error al cargar Patrones Históricos" onReset={() => setViewMode('cockpit')}>
+            <HistoricalPatternsView />
+          </ErrorBoundary>
         </div>
       ) : viewMode === 'macro_sentinel' ? (
         <div className="px-4 py-4 max-w-[1920px] mx-auto">
-          <MacroSentinelView />
+          <ErrorBoundary fallbackTitle="Error al cargar Centinela Macroeconómico" onReset={() => setViewMode('cockpit')}>
+            <MacroSentinelView />
+          </ErrorBoundary>
         </div>
       ) : (
         <>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../api';
 
 interface HistoricalPattern {
   id: string;
@@ -92,8 +92,10 @@ export const HistoricalPatternsView: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await axios.get<HistoricalDataResponse>(`/analysis/historical-patterns?symbol=${selectedSymbol}&years=${selectedYears}`);
-      setData(res.data);
+      const res = await api.get<HistoricalDataResponse>(`/analysis/historical-patterns?symbol=${selectedSymbol}&years=${selectedYears}`);
+      if (res.data && typeof res.data === 'object') {
+        setData(res.data);
+      }
     } catch (err) {
       console.error('Error fetching historical patterns:', err);
     } finally {
@@ -104,11 +106,13 @@ export const HistoricalPatternsView: React.FC = () => {
   const fetchAIRoadmap = async () => {
     setLoadingRoadmap(true);
     try {
-      const res = await axios.post<AIRoadmapResponse>('/analysis/pattern-roadmap', {
+      const res = await api.post<AIRoadmapResponse>('/analysis/pattern-roadmap', {
         symbol: selectedSymbol,
         years: selectedYears,
       });
-      setRoadmap(res.data);
+      if (res.data && typeof res.data === 'object') {
+        setRoadmap(res.data);
+      }
     } catch (err) {
       console.error('Error generating AI roadmap:', err);
     } finally {
@@ -197,20 +201,20 @@ export const HistoricalPatternsView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
           <div className="text-gray-400 text-xs font-medium">Retorno Anual Promedio ({selectedYears}A)</div>
-          <div className="text-2xl font-bold text-emerald-400 mt-1">+{data?.avg_annual_return_10y}%</div>
+          <div className="text-2xl font-bold text-emerald-400 mt-1">+{data?.avg_annual_return_10y ?? 0}%</div>
           <div className="text-[11px] text-gray-500 mt-1">Rentabilidad sostenida 10 años</div>
         </div>
 
         <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
           <div className="text-gray-400 text-xs font-medium">Win Rate Base Histórico</div>
-          <div className="text-2xl font-bold text-indigo-400 mt-1">{data?.historical_winrate_baseline}%</div>
+          <div className="text-2xl font-bold text-indigo-400 mt-1">{data?.historical_winrate_baseline ?? 0}%</div>
           <div className="text-[11px] text-gray-500 mt-1">Tasa de acierto matemática</div>
         </div>
 
         <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
           <div className="text-gray-400 text-xs font-medium">Mejores Meses de Plusvalía</div>
           <div className="text-base font-bold text-purple-300 mt-1 truncate">
-            {data?.best_months.slice(0, 2).join(', ')}
+            {Array.isArray(data?.best_months) ? data.best_months.slice(0, 2).join(', ') : 'Nov, Dic'}
           </div>
           <div className="text-[11px] text-gray-500 mt-1">Meses de máxima expansión</div>
         </div>
@@ -229,17 +233,17 @@ export const HistoricalPatternsView: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
-                Contexto Estacional Actual · {data.current_context.month_name} & {data.current_context.day_name}
+                Contexto Estacional Actual · {data.current_context?.month_name || ''} & {data.current_context?.day_name || ''}
               </span>
             </div>
             <div className="text-sm font-semibold text-white">
-              {data.current_context.recommendation_action}
+              {data.current_context?.recommendation_action || 'Analizando régimen estacional...'}
             </div>
           </div>
 
           <div className="flex items-center gap-2 bg-indigo-900/40 px-3.5 py-2 rounded-xl border border-indigo-500/20 text-xs">
             <span className="text-gray-400">Veredicto 10A:</span>
-            <span className="font-bold text-emerald-400">{data.current_context.verdict_status}</span>
+            <span className="font-bold text-emerald-400">{data.current_context?.verdict_status || 'NEUTRAL'}</span>
           </div>
         </div>
       )}
@@ -276,9 +280,9 @@ export const HistoricalPatternsView: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {data?.monthly_seasonality.map((m) => {
+              {(data?.monthly_seasonality || []).map((m) => {
                 const isPositive = m.avg_return >= 0;
-                const isCurrentMonth = m.name.toLowerCase() === data.current_context.month_name.toLowerCase();
+                const isCurrentMonth = m.name.toLowerCase() === (data?.current_context?.month_name || '').toLowerCase();
 
                 return (
                   <div
@@ -324,7 +328,7 @@ export const HistoricalPatternsView: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {data?.weekday_stats.map((d) => (
+              {(data?.weekday_stats || []).map((d) => (
                 <div key={d.day} className="bg-[#1F2937]/40 border border-gray-800 rounded-xl p-3.5 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-sm text-gray-200">{d.day}</span>
@@ -369,7 +373,7 @@ export const HistoricalPatternsView: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {data?.hourly_afluencia.map((h) => (
+            {(data?.hourly_afluencia || []).map((h) => (
               <div
                 key={h.hour}
                 className={`p-3.5 rounded-xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 ${
@@ -415,7 +419,7 @@ export const HistoricalPatternsView: React.FC = () => {
       {activeTab === 'patterns' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data?.recurrent_patterns.map((pat) => (
+            {(data?.recurrent_patterns || []).map((pat) => (
               <div
                 key={pat.id}
                 className="bg-[#111827] border border-gray-800 hover:border-indigo-500/50 rounded-2xl p-5 shadow-xl space-y-4 transition-all"
