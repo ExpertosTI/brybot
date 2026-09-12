@@ -14,10 +14,14 @@ import { BacktestCard } from '../components/analytics/BacktestCard';
 import { MarketNewsSentiment } from '../components/analytics/MarketNewsSentiment';
 import { ActivityFeed, ActivityEvent } from '../components/common/ActivityFeed';
 import { WhatsAppSettingsModal } from '../components/trading/WhatsAppSettingsModal';
+import { HistoricalPatternsView } from '../components/trading/HistoricalPatternsView';
 import { soundEffects } from '../utils/audioEffects';
 
 export function Dashboard() {
   const navigate = useNavigate();
+
+  // Navigation View Mode: 'cockpit' | 'historical_patterns'
+  const [viewMode, setViewMode] = useState<'cockpit' | 'historical_patterns'>('cockpit');
 
   // Modal State
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
@@ -252,49 +256,88 @@ export function Dashboard() {
         onToggleBot={() => setIsBotRunning(!isBotRunning)}
       />
 
-      {/* Mobile Mode Switcher Bar (Visible on mobile/tablet screens <= 900px) */}
-      <div className="mobile-view-selector-bar">
-        <button
-          type="button"
-          className={`mobile-tab-btn ${mobileTab === 'chart' ? 'active' : ''}`}
-          onClick={() => setMobileTab('chart')}
-        >
-          <span>📊 Gráfica</span>
-        </button>
-        <button
-          type="button"
-          className={`mobile-tab-btn ${mobileTab === 'gemini' ? 'active' : ''}`}
-          onClick={() => setMobileTab('gemini')}
-        >
-          <span>🧠 Gemini AI</span>
-        </button>
-        <button
-          type="button"
-          className={`mobile-tab-btn ${mobileTab === 'execute' ? 'active' : ''}`}
-          onClick={() => setMobileTab('execute')}
-        >
-          <span>⚡ Operar & DOM</span>
-        </button>
-        <button
-          type="button"
-          className={`mobile-tab-btn ${mobileTab === 'analytics' ? 'active' : ''}`}
-          onClick={() => setMobileTab('analytics')}
-        >
-          <span>📈 Análisis</span>
-        </button>
-        <button
-          type="button"
-          className={`mobile-tab-btn ${mobileTab === 'all' ? 'active' : ''}`}
-          onClick={() => setMobileTab('all')}
-        >
-          <span>📜 Todo</span>
-        </button>
+      {/* Primary Workspace View Switcher (Desktop & Mobile) */}
+      <div className="px-4 pt-3 flex items-center justify-between gap-3 max-w-[1920px] mx-auto">
+        <div className="flex bg-[#111827] p-1 rounded-xl border border-gray-800 shadow-lg">
+          <button
+            type="button"
+            onClick={() => setViewMode('cockpit')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
+              viewMode === 'cockpit'
+                ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <span>📊</span>
+            <span>Trading Cockpit (En Vivo)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('historical_patterns')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
+              viewMode === 'historical_patterns'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <span>🏛️</span>
+            <span>Patrones 5-10 Años & Afluencia</span>
+            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold border border-emerald-500/30">NUEVO</span>
+          </button>
+        </div>
       </div>
 
-      {/* 3. Main Trading Workspace Layout */}
-      <main className={`trading-workspace-grid mobile-active-tab-${mobileTab}`}>
-        {/* Left Column: Primary Chart, Gemini Advisor, Copilot & Analytics */}
-        <section className="workspace-main-column">
+      {/* Conditional View: 10-Year Historical Patterns vs Live Trading Cockpit */}
+      {viewMode === 'historical_patterns' ? (
+        <div className="px-4 py-4 max-w-[1920px] mx-auto">
+          <HistoricalPatternsView />
+        </div>
+      ) : (
+        <>
+          {/* Mobile Mode Switcher Bar (Visible on mobile/tablet screens <= 900px) */}
+          <div className="mobile-view-selector-bar">
+            <button
+              type="button"
+              className={`mobile-tab-btn ${mobileTab === 'chart' ? 'active' : ''}`}
+              onClick={() => setMobileTab('chart')}
+            >
+              <span>📊 Gráfica</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-tab-btn ${mobileTab === 'gemini' ? 'active' : ''}`}
+              onClick={() => setMobileTab('gemini')}
+            >
+              <span>🧠 Gemini AI</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-tab-btn ${mobileTab === 'execute' ? 'active' : ''}`}
+              onClick={() => setMobileTab('execute')}
+            >
+              <span>⚡ Operar & DOM</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-tab-btn ${mobileTab === 'analytics' ? 'active' : ''}`}
+              onClick={() => setMobileTab('analytics')}
+            >
+              <span>📈 Análisis</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-tab-btn ${mobileTab === 'all' ? 'active' : ''}`}
+              onClick={() => setMobileTab('all')}
+            >
+              <span>📜 Todo</span>
+            </button>
+          </div>
+
+          {/* 3. Main Trading Workspace Layout */}
+          <main className={`trading-workspace-grid mobile-active-tab-${mobileTab}`}>
+            {/* Left Column: Primary Chart, Gemini Advisor, Copilot & Analytics */}
+            <section className="workspace-main-column">
           {/* Chart Section */}
           <div className={`tab-panel-section panel-chart ${mobileTab === 'chart' || mobileTab === 'all' ? 'active-panel' : ''}`}>
             <CandlestickChart
@@ -384,6 +427,8 @@ export function Dashboard() {
           </div>
         </aside>
       </main>
+      </>
+      )}
 
       {/* WhatsApp Evolution API Notification Settings Modal */}
       <WhatsAppSettingsModal
