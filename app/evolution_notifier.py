@@ -232,3 +232,21 @@ def notify_risk_limit_hit(
         f"🧘 *Recomendación del Coach*: Cierra la plataforma y regresa en la siguiente sesión con mente despejada."
     )
     return send_whatsapp_message(msg, recipient)
+
+
+def notify_daily_loss_limit_reached(
+    loss_count: int = 2,
+    max_allowed: int = 2,
+    recipient: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Alerts when the maximum allowed 2 losses per day circuit breaker is triggered."""
+    msg = (
+        f"🛑 *CIRCUIT BREAKER ACTIVADO | RENACE LAB*\n\n"
+        f"⚠️ *LÍMITE DIARIO DE OPERACIONES PERDIDAS ({loss_count}/{max_allowed})*\n"
+        f"🔒 *Estado*: Bloqueo preventivo de trading activo.\n"
+        f"📉 *Motivo*: Se alcanzó el máximo estricto de {max_allowed} pérdidas en la sesión de hoy.\n"
+        f"🛡️ *Protección*: No se ejecutarán más operaciones hasta la sesión de mañana para blindar la plusvalía acumulada.\n\n"
+        f"✨ _Disciplina cuantitativa ante todo._"
+    )
+    return send_whatsapp_message(msg, recipient)
+

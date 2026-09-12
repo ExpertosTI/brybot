@@ -74,7 +74,13 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
     if not force and (now - _LAST_DISPATCH_TIME) < MIN_CYCLE_INTERVAL:
         return []
 
+    from app.strategy import get_3hour_trend, daily_risk_guardian
+
+    risk_allowed, risk_reason = daily_risk_guardian.is_trading_allowed()
+    risk_status = daily_risk_guardian.get_status()
+
     quotes = {}
+    trends_3h = {}
     best_opportunity = None
     highest_confidence = 0
 
@@ -83,33 +89,52 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
             q = fetch_real_quote(sym)
             quotes[sym] = q
 
-            # Check if this asset has an actionable trade setup
-            ohlc = fetch_real_ohlc(sym, "5", count=40) or fetch_real_ohlc(sym, "1", count=40)
-            if ohlc and len(ohlc.get("c", [])) >= 15:
-                indicators = compute_simple_indicators(ohlc)
-                rsi = indicators["rsi"]
-                price = q.get("price", ohlc["c"][-1])
+            trend_info = get_3hour_trend(sym)
+            trends_3h[sym] = trend_info.get("trend", "NEUTRAL")
 
-                # Quick confluence check
-                if (rsi < 48 and price >= indicators["ma_fast"]) or q.get("change", 0) > 0.3:
-                    advice = generate_gemini_trade_advice(
-                        symbol=sym,
-                        current_price=price,
-                        rsi=rsi,
-                        ma_fast=indicators["ma_fast"],
-                        ma_slow=indicators["ma_slow"],
-                    )
-                    conf = advice.get("confidence", 75)
-                    if conf > highest_confidence and advice.get("recommendation") in ("BUY", "LONG"):
-                        highest_confidence = conf
-                        best_opportunity = {
-                            "symbol": sym,
-                            "price": price,
-                            "sl": advice.get("stop_loss_price", price * 0.996),
-                            "tp": advice.get("take_profit_price", price * 1.008),
-                            "confidence": conf,
-                            "reason": advice.get("headline", "Mitigación FVG & Soporte Institucional"),
-                        }
+            # Check if this asset has an actionable trade setup respecting 3H Trend and Daily Loss Limit
+            if risk_allowed and trend_info.get("trend") in ("BULLISH", "BEARISH"):
+                ohlc = fetch_real_ohlc(sym, "5", count=40) or fetch_real_ohlc(sym, "1", count=40)
+                if ohlc and len(ohlc.get("c", [])) >= 15:
+                    indicators = compute_simple_indicators(ohlc)
+                    rsi = indicators["rsi"]
+                    price = q.get("price", ohlc["c"][-1])
+
+                    is_3h_bull = trend_info.get("trend") == "BULLISH"
+                    is_3h_bear = trend_info.get("trend") == "BEARISH"
+
+                    # 3H Bullish Pullback or 3H Bearish Pullback
+                    setup_valid = False
+                    if is_3h_bull and (30 <= rsi <= 52) and price >= indicators["ma_fast"] * 0.995:
+                        setup_valid = True
+                    elif is_3h_bear and (48 <= rsi <= 70) and price <= indicators["ma_fast"] * 1.005:
+                        setup_valid = True
+
+                    if setup_valid:
+                        advice = generate_gemini_trade_advice(
+                            symbol=sym,
+                            current_price=price,
+                            rsi=rsi,
+                            ma_fast=indicators["ma_fast"],
+                            ma_slow=indicators["ma_slow"],
+                        )
+                        conf = advice.get("confidence", 75)
+                        rec = advice.get("recommendation", "HOLD")
+
+                        if conf > highest_confidence and (
+                            (is_3h_bull and rec in ("BUY", "LONG")) or (is_3h_bear and rec in ("SELL", "SHORT"))
+                        ):
+                            highest_confidence = conf
+                            best_opportunity = {
+                                "symbol": sym,
+                                "side": rec,
+                                "price": price,
+                                "sl": advice.get("stop_loss_price", price * 0.996 if is_3h_bull else price * 1.004),
+                                "tp": advice.get("take_profit_price", price * 1.008 if is_3h_bull else price * 0.992),
+                                "confidence": conf,
+                                "trend_3h": trend_info.get("trend"),
+                                "reason": advice.get("headline", f"Confluencia Tendencia 3H {trend_info.get('trend')} + Mitigación FVG"),
+                            }
         except Exception as e:
             logger.warning(f"Scan check error for {sym}: {e}")
 
@@ -118,35 +143,44 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
     lines = []
     for sym in CORE_WATCHLIST:
         q = quotes.get(sym, {})
-        chg = q.get("change", 0.0)
         p = q.get("price", 0.0)
-        chg_tag = f"+{chg}%" if chg >= 0 else f"{chg}%"
-        arrow = "🟢" if chg >= 0 else "🔴"
+        t3h = trends_3h.get(sym, "NEUTRAL")
+        arrow = "🟢" if t3h == "BULLISH" else ("🔴" if t3h == "BEARISH" else "⚪")
+        t_label = "3H ALC" if t3h == "BULLISH" else ("3H BAJ" if t3h == "BEARISH" else "3H LAT")
         price_fmt = f"${p:,.2f}" if p < 10000 else f"${p:,.0f}"
-        lines.append(f"• *{sym}*: {price_fmt} ({arrow} {chg_tag})")
+        lines.append(f"• *{sym}*: {price_fmt} ({arrow} {t_label})")
 
     opp_block = ""
-    if best_opportunity:
+    if not risk_allowed:
+        opp_block = (
+            f"\n🛑 *CIRCUIT BREAKER ACTIVO*:\n"
+            f"⚠️ Límite de {risk_status['max_allowed_losses']} pérdidas diarias alcanzado ({risk_status['daily_loss_count']}/{risk_status['max_allowed_losses']}).\n"
+            f"🔒 Entradas bloqueadas para proteger plusvalía.\n"
+        )
+    elif best_opportunity:
         bo = best_opportunity
         p_fmt = f"${bo['price']:,.2f}" if bo['price'] < 10000 else f"${bo['price']:,.0f}"
         sl_fmt = f"${bo['sl']:,.2f}" if bo['sl'] < 10000 else f"${bo['sl']:,.0f}"
         tp_fmt = f"${bo['tp']:,.2f}" if bo['tp'] < 10000 else f"${bo['tp']:,.0f}"
+        side_tag = "COMPRA / LONG" if bo["side"] in ("BUY", "LONG") else "VENTA / SHORT"
+        side_icon = "🟢" if bo["side"] in ("BUY", "LONG") else "🔴"
         opp_block = (
             f"\n🎯 *Oportunidad Top ({bo['confidence']}% Conf.)*:\n"
-            f"🟢 *COMPRA #{bo['symbol']}* @ {p_fmt}\n"
-            f"🛑 SL: {sl_fmt} | 🏁 TP: {tp_fmt}\n"
+            f"{side_icon} *{side_tag} #{bo['symbol']}* @ {p_fmt}\n"
+            f"🛑 SL: {sl_fmt} | 🏁 TP: {tp_fmt} (R:R 1:2.0)\n"
             f"💡 _{bo['reason']}_\n"
         )
     else:
-        opp_block = "\n🎯 *Estado*: Mercado en consolidación. Esperando confirmación de entrada.\n"
+        opp_block = "\n🎯 *Estado*: Esperando retroceso óptimo alineado a Tendencia 3H.\n"
 
+    loss_str = f"{risk_status['daily_loss_count']}/{risk_status['max_allowed_losses']}"
     msg = (
-        f"⚡ *RENACE LAB | PULSO 5M*\n"
+        f"⚡ *RENACE LAB | PULSO 3H & 5M*\n"
         f"🕒 _{time_str} · En Vivo_\n\n"
-        f"📊 *Mercados*:\n"
+        f"📊 *Tendencias 3H & Precios*:\n"
         + "\n".join(lines)
         + opp_block
-        + "\n🛡️ _Centinela Topstep: -$2,000 vigilado._"
+        + f"\n🛡️ _Pérdidas Hoy: {loss_str} permitidas | Centinela -$2,000_"
     )
 
     # Anti-spam check: do not send if the summary content is identical

@@ -19,6 +19,8 @@ class TradovateRiskManager:
         # Thresholds
         self.DAILY_LOSS_LIMIT = -150.00
         self.MLL_THRESHOLD = 48100.00
+        self.MAX_DAILY_LOSSES = 2
+        self._prev_realized_pnl = 0.0
         
         # State
         self.kill_switch_engaged = False
@@ -51,6 +53,19 @@ class TradovateRiskManager:
         net_liquidity = cash_balance + unrealized_pnl
 
         logger.debug(f"Account Update | PnL: {realized_pnl} | Net Liq: {net_liquidity}")
+
+        # Check if a new losing trade closed
+        if realized_pnl < self._prev_realized_pnl:
+            loss_delta = realized_pnl - self._prev_realized_pnl
+            from app.strategy import daily_risk_guardian
+            status = daily_risk_guardian.record_trade_result(is_win=False, pnl=loss_delta)
+            if status.get("is_locked"):
+                logger.warning(f"🚨 CIRCUIT BREAKER: Max {self.MAX_DAILY_LOSSES} daily losses reached! Liquidating and locking.")
+                await self.execute_liquidation()
+                self.kill_switch_engaged = True
+                return
+
+        self._prev_realized_pnl = realized_pnl
 
         if realized_pnl <= self.DAILY_LOSS_LIMIT:
             logger.warning(f"🚨 KILL-SWITCH ENGAGED! Realized PnL ({realized_pnl}) hit daily loss limit ({self.DAILY_LOSS_LIMIT}).")
