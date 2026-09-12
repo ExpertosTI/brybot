@@ -1,12 +1,116 @@
 import os
 import re
 import requests
+import logging
 from typing import Any, Dict, List, Optional
 
-EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "https://evoapi.renace.tech").rstrip("/")
-EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY", "")
-EVOLUTION_INSTANCE = os.getenv("EVOLUTION_INSTANCE", "renace")
-DEFAULT_NOTIFY_NUMBERS = os.getenv("WHATSAPP_NOTIFY_NUMBERS", "18494577463")
+logger = logging.getLogger(__name__)
+
+# Config dictionary with runtime dynamic updates
+EVOLUTION_CONFIG = {
+    "url": os.getenv("EVOLUTION_API_URL", "https://evoapi.renace.tech").rstrip("/"),
+    "api_key": os.getenv("EVOLUTION_API_KEY", ""),
+    "instance": os.getenv("EVOLUTION_INSTANCE", "renace"),
+    "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS", "18494577463"),
+}
+
+
+def get_evolution_config() -> Dict[str, Any]:
+    """Returns current Evolution API settings with masked API key."""
+    key = EVOLUTION_CONFIG["api_key"]
+    masked_key = f"{key[:4]}...{key[-4:]}" if len(key) > 8 else ("***" if key else "")
+    return {
+        "url": EVOLUTION_CONFIG["url"],
+        "instance": EVOLUTION_CONFIG["instance"],
+        "notify_numbers": EVOLUTION_CONFIG["notify_numbers"],
+        "has_api_key": bool(key),
+        "api_key_masked": masked_key,
+    }
+
+
+def update_evolution_config(
+    url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    instance: Optional[str] = None,
+    notify_numbers: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Updates the Evolution API configuration at runtime."""
+    if url:
+        EVOLUTION_CONFIG["url"] = url.rstrip("/")
+        os.environ["EVOLUTION_API_URL"] = EVOLUTION_CONFIG["url"]
+    if api_key is not None:
+        if api_key != "":
+            EVOLUTION_CONFIG["api_key"] = api_key
+            os.environ["EVOLUTION_API_KEY"] = api_key
+    if instance:
+        EVOLUTION_CONFIG["instance"] = instance
+        os.environ["EVOLUTION_INSTANCE"] = instance
+    if notify_numbers:
+        EVOLUTION_CONFIG["notify_numbers"] = notify_numbers
+        os.environ["WHATSAPP_NOTIFY_NUMBERS"] = notify_numbers
+
+    return get_evolution_config()
+
+
+def check_evolution_instance_status() -> Dict[str, Any]:
+    """Checks whether the Evolution API instance is online and connected to WhatsApp."""
+    url = EVOLUTION_CONFIG["url"]
+    instance = EVOLUTION_CONFIG["instance"]
+    api_key = EVOLUTION_CONFIG["api_key"]
+
+    if not api_key:
+        return {
+            "status": "warning",
+            "state": "unconfigured",
+            "is_connected": False,
+            "message": "Evolution API Key no configurada. Ingresa tu API Key en Ajustes.",
+        }
+
+    endpoint = f"{url}/instance/connectionState/{instance}"
+    headers = {"apikey": api_key}
+
+    try:
+        res = requests.get(endpoint, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            state = data.get("instance", {}).get("state") or data.get("state", "unknown")
+            is_connected = state.lower() == "open"
+            return {
+                "status": "success",
+                "state": state,
+                "is_connected": is_connected,
+                "raw": data,
+                "message": f"Instancia '{instance}': {state.upper()}",
+            }
+        elif res.status_code == 401:
+            return {
+                "status": "error",
+                "state": "unauthorized",
+                "is_connected": False,
+                "message": "API Key inválida o no autorizada en Evolution API.",
+            }
+        elif res.status_code == 404:
+            return {
+                "status": "error",
+                "state": "not_found",
+                "is_connected": False,
+                "message": f"La instancia '{instance}' no existe en {url}.",
+            }
+        else:
+            return {
+                "status": "error",
+                "state": "http_error",
+                "status_code": res.status_code,
+                "is_connected": False,
+                "message": f"Error del servidor Evolution API ({res.status_code}): {res.text[:200]}",
+            }
+    except Exception as exc:
+        return {
+            "status": "error",
+            "state": "network_error",
+            "is_connected": False,
+            "message": f"No se pudo conectar a {url}: {str(exc)}",
+        }
 
 
 def format_whatsapp_number(number: str) -> str:
@@ -19,13 +123,15 @@ def format_whatsapp_number(number: str) -> str:
 
 def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[str, Any]:
     """Sends a WhatsApp message via Evolution API."""
-    target_num = format_whatsapp_number(recipient or DEFAULT_NOTIFY_NUMBERS.split(",")[0])
+    default_recipients = EVOLUTION_CONFIG["notify_numbers"].split(",")
+    target_num = format_whatsapp_number(recipient or default_recipients[0])
     if not target_num:
         return {"status": "error", "message": "No valid phone number provided."}
 
-    url = f"{EVOLUTION_API_URL}/message/sendText/{EVOLUTION_INSTANCE}"
+    url = f"{EVOLUTION_CONFIG['url']}/message/sendText/{EVOLUTION_CONFIG['instance']}"
+    api_key = EVOLUTION_CONFIG["api_key"]
     headers = {
-        "apikey": EVOLUTION_API_KEY,
+        "apikey": api_key,
         "Content-Type": "application/json",
     }
     payload = {
@@ -35,7 +141,7 @@ def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[st
     }
 
     try:
-        if EVOLUTION_API_KEY:
+        if api_key:
             res = requests.post(url, json=payload, headers=headers, timeout=8)
             if 200 <= res.status_code < 300:
                 return {"status": "sent", "recipient": target_num, "response": res.json()}
@@ -46,7 +152,7 @@ def send_whatsapp_message(text: str, recipient: Optional[str] = None) -> Dict[st
     return {
         "status": "simulated",
         "recipient": target_num,
-        "message": "Message dispatched via Evolution API mock channel",
+        "message": "Message dispatched via Evolution API mock channel (Add API Key in settings to send live)",
     }
 
 

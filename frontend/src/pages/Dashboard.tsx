@@ -13,10 +13,14 @@ import { MarketStructureCard } from '../components/analytics/MarketStructureCard
 import { BacktestCard } from '../components/analytics/BacktestCard';
 import { MarketNewsSentiment } from '../components/analytics/MarketNewsSentiment';
 import { ActivityFeed, ActivityEvent } from '../components/common/ActivityFeed';
+import { WhatsAppSettingsModal } from '../components/trading/WhatsAppSettingsModal';
 import { soundEffects } from '../utils/audioEffects';
 
 export function Dashboard() {
   const navigate = useNavigate();
+
+  // Modal State
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState<boolean>(false);
 
   // Primary state: Default to NASDAQ (NQ)
   const [symbol, setSymbol] = useState<string>('NQ');
@@ -232,6 +236,7 @@ export function Dashboard() {
         currentPrice={currentPrice}
         priceChange={priceChange}
         user={user}
+        onOpenWhatsAppSettings={() => setIsWhatsAppModalOpen(true)}
       />
 
       {/* 2. Account & Risk Management Bar */}
@@ -379,6 +384,12 @@ export function Dashboard() {
           </div>
         </aside>
       </main>
+
+      {/* WhatsApp Evolution API Notification Settings Modal */}
+      <WhatsAppSettingsModal
+        isOpen={isWhatsAppModalOpen}
+        onClose={() => setIsWhatsAppModalOpen(false)}
+      />
     </div>
   );
 }

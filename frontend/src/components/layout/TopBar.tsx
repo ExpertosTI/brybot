@@ -6,6 +6,7 @@ interface TopBarProps {
   currentPrice: number;
   priceChange: number;
   user?: { username: string } | null;
+  onOpenWhatsAppSettings?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -13,6 +14,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   currentPrice,
   priceChange,
   user,
+  onOpenWhatsAppSettings,
 }) => {
   const navigate = useNavigate();
 
@@ -51,6 +53,17 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       <div className="topbar-user-section">
+        {onOpenWhatsAppSettings && (
+          <button
+            type="button"
+            className="topbar-action-icon-btn whatsapp-btn"
+            onClick={onOpenWhatsAppSettings}
+            title="Ajustes de WhatsApp & Notificaciones"
+          >
+            <span className="wa-icon">📲</span>
+            <span className="wa-text">WhatsApp Alertas</span>
+          </button>
+        )}
         <div className="user-profile-badge">
           <span className="user-role-tag">DEMO TRADER</span>
           <span className="user-name-text">{user?.username || 'demo_trader'}</span>

@@ -224,3 +224,48 @@ def market_pulse_notify_endpoint(request: MarketScanRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+class WhatsAppSettingsUpdateRequest(BaseModel):
+    url: Optional[str] = None
+    api_key: Optional[str] = None
+    instance: Optional[str] = None
+    notify_numbers: Optional[str] = None
+
+
+@router.get("/whatsapp-settings")
+def get_whatsapp_settings_endpoint() -> Dict[str, Any]:
+    """Returns current WhatsApp / Evolution API configuration and status."""
+    from app.evolution_notifier import get_evolution_config, check_evolution_instance_status
+    config = get_evolution_config()
+    status_info = check_evolution_instance_status()
+    return {
+        "config": config,
+        "instance_status": status_info,
+    }
+
+
+@router.post("/whatsapp-settings")
+def update_whatsapp_settings_endpoint(request: WhatsAppSettingsUpdateRequest) -> Dict[str, Any]:
+    """Updates WhatsApp / Evolution API notification settings."""
+    from app.evolution_notifier import update_evolution_config, check_evolution_instance_status
+    updated = update_evolution_config(
+        url=request.url,
+        api_key=request.api_key,
+        instance=request.instance,
+        notify_numbers=request.notify_numbers,
+    )
+    status_info = check_evolution_instance_status()
+    return {
+        "status": "success",
+        "message": "Configuración de WhatsApp actualizada exitosamente.",
+        "config": updated,
+        "instance_status": status_info,
+    }
+
+
+@router.get("/whatsapp-instance-status")
+def get_whatsapp_instance_status_endpoint() -> Dict[str, Any]:
+    """Directly checks Evolution API instance connection state."""
+    from app.evolution_notifier import check_evolution_instance_status
+    return check_evolution_instance_status()
+
+

@@ -6210,6 +6210,241 @@ html, body {
   overflow-x: hidden;
 }
 
+/* ── TopBar WhatsApp Notification Button ──────────────────────── */
+.topbar-action-icon-btn.whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  color: #25d366;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.topbar-action-icon-btn.whatsapp-btn:hover {
+  background: rgba(37, 211, 102, 0.22);
+  border-color: #25d366;
+  box-shadow: 0 0 12px rgba(37, 211, 102, 0.25);
+}
+
+.topbar-action-icon-btn.whatsapp-btn .wa-icon {
+  font-size: 0.95rem;
+}
+
+/* ── WhatsApp Settings Modal Styles ─────────────────────────── */
+.whatsapp-settings-modal {
+  width: 95%;
+  max-width: 580px;
+  background: #090d16;
+  border: 1px solid rgba(242, 169, 0, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 30px rgba(242, 169, 0, 0.08);
+  overflow: hidden;
+}
+
+.modal-subtitle {
+  font-size: 0.75rem;
+  color: #8e9eb5;
+  margin: 0;
+}
+
+.modal-toast-banner {
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  animation: fadeInToast 0.25s ease-out;
+}
+
+.modal-toast-banner.success {
+  background: rgba(0, 230, 138, 0.15);
+  border-color: rgba(0, 230, 138, 0.3);
+  color: #00e68a;
+}
+
+.modal-toast-banner.error {
+  background: rgba(255, 77, 106, 0.15);
+  border-color: rgba(255, 77, 106, 0.3);
+  color: #ff4d6a;
+}
+
+.modal-toast-banner.info {
+  background: rgba(0, 153, 255, 0.15);
+  border-color: rgba(0, 153, 255, 0.3);
+  color: #0099ff;
+}
+
+@keyframes fadeInToast {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.instance-status-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.status-indicator-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.status-dot-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot-pulse.active {
+  background: #00e68a;
+  box-shadow: 0 0 10px #00e68a;
+}
+
+.status-dot-pulse.warn {
+  background: #f2a900;
+  box-shadow: 0 0 8px rgba(242, 169, 0, 0.6);
+}
+
+.status-info-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.status-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8e9eb5;
+}
+
+.status-val {
+  font-size: 0.82rem;
+}
+
+.status-val.pos { color: #00e68a; }
+.status-val.warn { color: #f2a900; }
+
+.refresh-status-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-status-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.key-configured-tag {
+  color: #00e68a;
+  font-size: 0.7rem;
+  font-weight: 500;
+  margin-left: 0.4rem;
+}
+
+.modal-quick-actions-bar {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.quick-action-btn {
+  flex: 1;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.quick-action-btn.pulse-btn {
+  background: rgba(0, 153, 255, 0.12);
+  border: 1px solid rgba(0, 153, 255, 0.35);
+  color: #0099ff;
+}
+
+.quick-action-btn.pulse-btn:hover {
+  background: rgba(0, 153, 255, 0.22);
+  border-color: #0099ff;
+  box-shadow: 0 0 12px rgba(0, 153, 255, 0.25);
+}
+
+.quick-action-btn.test-btn {
+  background: rgba(37, 211, 102, 0.12);
+  border: 1px solid rgba(37, 211, 102, 0.35);
+  color: #25d366;
+}
+
+.quick-action-btn.test-btn:hover {
+  background: rgba(37, 211, 102, 0.22);
+  border-color: #25d366;
+  box-shadow: 0 0 12px rgba(37, 211, 102, 0.25);
+}
+
+.btn-save-modal {
+  background: #f2a900;
+  color: #000;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.55rem 1.25rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save-modal:hover:not(:disabled) {
+  background: #ffb81c;
+  box-shadow: 0 0 16px rgba(242, 169, 0, 0.4);
+}
+
+.btn-save-modal:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel-modal {
+  background: transparent;
+  color: #8e9eb5;
+  font-size: 0.85rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-modal:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
 
 
 
