@@ -24,5 +24,8 @@ EOF
 echo "🔄 Running database migrations..."
 alembic upgrade head || echo "⚠️ Alembic warning (proceeding with app startup)"
 
+echo "👤 Seeding initial admin credentials..."
+python seed.py || echo "⚠️ Seed warning (proceeding with app startup)"
+
 echo "🚀 Starting Uvicorn server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
