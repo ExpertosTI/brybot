@@ -25,12 +25,11 @@ export const TopBar: React.FC<TopBarProps> = ({
     <header className="app-topbar">
       <div className="topbar-brand-section">
         <div className="brand-logo-mark">
-          <span className="logo-neon-pulse" />
-          <span className="logo-glyph">&Delta;</span>
+          <img src="/assets/renace_symbol.svg" alt="RENACE TRADING" className="topbar-renace-logo-img" />
         </div>
         <div className="brand-titles">
-          <span className="brand-lab-name">RENACE TRADING LAB</span>
-          <span className="brand-sub-badge">INSTITUTIONAL SUITE 2030</span>
+          <span className="brand-lab-name">RENACE TRADING</span>
+          <span className="brand-sub-badge">INSTITUTIONAL QUANT LAB 2030</span>
         </div>
       </div>
 

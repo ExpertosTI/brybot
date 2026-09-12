@@ -213,12 +213,39 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     let activeCandles: CandlestickData[] = [];
     let activeVolumes: HistogramData[] = [];
 
-    const loadData = async () => {
-      setIsLoading(true);
+    // Synchronous immediate data populate on mount (Zero loading delay)
+    const initialSynth = generateSyntheticCandles(symbol, resolution);
+    activeCandles = initialSynth.candles;
+    activeVolumes = initialSynth.volumes;
+    candleSeries.setData(activeCandles);
+    areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
+    volumeSeries.setData(activeVolumes);
+    ma20Series.setData(computeSma(activeCandles, 20));
+    ma50Series.setData(computeSma(activeCandles, 50));
+    chart.timeScale().fitContent();
+
+    const lastInit = activeCandles[activeCandles.length - 1];
+    const firstInit = activeCandles[0];
+    const changeInit = Math.round(((lastInit.close - firstInit.open) / firstInit.open) * 10000) / 100;
+    const lastVolInit = (activeVolumes[activeVolumes.length - 1]?.value as number) || 500;
+    setCurrentOhlc({
+      open: lastInit.open,
+      high: lastInit.high,
+      low: lastInit.low,
+      close: lastInit.close,
+      volume: lastVolInit,
+      change: changeInit,
+    });
+    if (onPriceUpdate) {
+      onPriceUpdate(lastInit.close, changeInit, lastInit.high, lastInit.low, lastVolInit);
+    }
+
+    // Silent background sync with server
+    const syncServerData = async () => {
       try {
         const res = await api.get('/analysis/candles', {
           params: { symbol, resolution, count: 120 },
-          timeout: 4000,
+          timeout: 2000,
         });
         if (res.data?.candles?.length) {
           activeCandles = res.data.candles.map((c: any) => ({
@@ -233,49 +260,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             value: c.volume || 100,
             color: c.close >= c.open ? 'rgba(0, 230, 138, 0.35)' : 'rgba(255, 77, 106, 0.35)',
           }));
-        } else {
-          const synth = generateSyntheticCandles(symbol, resolution);
-          activeCandles = synth.candles;
-          activeVolumes = synth.volumes;
+          candleSeries.setData(activeCandles);
+          areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
+          volumeSeries.setData(activeVolumes);
+          ma20Series.setData(computeSma(activeCandles, 20));
+          ma50Series.setData(computeSma(activeCandles, 50));
         }
-      } catch (err) {
-        const synth = generateSyntheticCandles(symbol, resolution);
-        activeCandles = synth.candles;
-        activeVolumes = synth.volumes;
-      } finally {
-        setIsLoading(false);
-      }
-
-      if (activeCandles.length > 0) {
-        candleSeries.setData(activeCandles);
-        areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
-        volumeSeries.setData(activeVolumes);
-        ma20Series.setData(computeSma(activeCandles, 20));
-        ma50Series.setData(computeSma(activeCandles, 50));
-
-        const last = activeCandles[activeCandles.length - 1];
-        const first = activeCandles[0];
-        const change = Math.round(((last.close - first.open) / first.open) * 10000) / 100;
-        const lastVol = (activeVolumes[activeVolumes.length - 1]?.value as number) || 500;
-
-        setCurrentOhlc({
-          open: last.open,
-          high: last.high,
-          low: last.low,
-          close: last.close,
-          volume: lastVol,
-          change,
-        });
-
-        if (onPriceUpdate) {
-          onPriceUpdate(last.close, change, last.high, last.low, lastVol);
-        }
-
-        chart.timeScale().fitContent();
+      } catch {
+        // Keeps instant synthetic candles seamlessly
       }
     };
-
-    loadData();
+    syncServerData();
 
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.seriesData.get(candleSeries)) {
@@ -538,12 +533,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
         {/* Viewport container */}
         <div className="chart-viewport-wrapper">
-          {isLoading && (
-            <div className="chart-loader">
-              <div className="spinner" />
-              <span>Sincronizando feed institucional de {symbol}...</span>
-            </div>
-          )}
           <div ref={chartContainerRef} className="tv-chart-viewport" />
         </div>
       </div>
