@@ -57,25 +57,30 @@ class TradeRequest(BaseModel):
 
 
 @router.post("/update-config")
-def update_config(config: BotConfig):
+def update_config(
+    config: BotConfig,
+    current_user: models.User = Depends(get_current_user_model),
+):
     """Update bot configuration while it is running."""
     if config.buy_threshold is not None:
-        BOT_STATE["buy_threshold"] = config.buy_threshold
+        BOT_STATE["buy_threshold"] = max(1, min(99, config.buy_threshold))
     if config.sell_threshold is not None:
-        BOT_STATE["sell_threshold"] = config.sell_threshold
+        BOT_STATE["sell_threshold"] = max(1, min(99, config.sell_threshold))
     if config.auto_trade is not None:
         BOT_STATE["auto_trade"] = config.auto_trade
     if config.quantity is not None:
-        BOT_STATE["quantity"] = config.quantity
+        BOT_STATE["quantity"] = max(1, min(50, config.quantity))
     if config.interval_seconds is not None:
-        BOT_STATE["interval_seconds"] = config.interval_seconds
+        BOT_STATE["interval_seconds"] = max(5, min(3600, config.interval_seconds))
     if config.bar_interval_minutes is not None:
-        BOT_STATE["bar_interval_minutes"] = config.bar_interval_minutes
+        BOT_STATE["bar_interval_minutes"] = max(1, min(60, config.bar_interval_minutes))
     return {"status": "updated", **BOT_STATE}
 
 
 @router.post("/stop-bot")
-def stop_bot():
+def stop_bot(
+    current_user: models.User = Depends(get_current_user_model),
+):
     """Signal the running bot loop to stop."""
     BOT_STATE["stop"] = True
     return {"status": "stopping"}

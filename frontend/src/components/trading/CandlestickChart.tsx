@@ -121,20 +121,37 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     return { candles, volumes };
   }, []);
 
-  const computeSma = (data: CandlestickData[], period: number): LineData[] => {
+  // True Exponential Moving Average algorithm for smooth lines from bar 0
+  const computeEma = (data: CandlestickData[], period: number): LineData[] => {
+    if (data.length === 0) return [];
+    const k = 2 / (period + 1);
     const result: LineData[] = [];
+    let ema = data[0].close;
     for (let i = 0; i < data.length; i++) {
-      if (i < period - 1) continue;
-      let sum = 0;
-      for (let j = 0; j < period; j++) {
-        sum += data[i - j].close;
-      }
+      ema = data[i].close * k + ema * (1 - k);
       result.push({
         time: data[i].time,
-        value: Math.round((sum / period) * 100) / 100,
+        value: Math.round(ema * 100) / 100,
       });
     }
     return result;
+  };
+
+  // Strictly sanitizes, deduplicates, and sorts candles by timestamp in ascending order
+  const sanitizeCandles = (raw: any[]): CandlestickData[] => {
+    const map = new Map<number, CandlestickData>();
+    for (const c of raw) {
+      const t = typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000);
+      if (!t || isNaN(t)) continue;
+      map.set(t, {
+        time: t as any,
+        open: Number(c.open) || 0,
+        high: Number(c.high) || 0,
+        low: Number(c.low) || 0,
+        close: Number(c.close) || 0,
+      });
+    }
+    return Array.from(map.values()).sort((a, b) => (a.time as number) - (b.time as number));
   };
 
   // 1. Chart Creation Lifecycle (Runs on mount / container resize)
@@ -179,6 +196,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       rightPriceScale: {
         borderColor: 'rgba(255, 255, 255, 0.08)',
         scaleMargins: { top: 0.1, bottom: 0.2 },
+        autoScale: true,
       },
       timeScale: {
         borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -307,7 +325,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     // Load initial fallback while fetching
     const initialFallback = generateInitialFallback(symUpper, resolution);
-    activeCandles = initialFallback.candles;
+    activeCandles = sanitizeCandles(initialFallback.candles);
     activeVolumes = initialFallback.volumes;
 
     if (candleSeriesRef.current) {
@@ -320,10 +338,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       volumeSeriesRef.current.setData(activeVolumes);
     }
     if (ma20SeriesRef.current) {
-      ma20SeriesRef.current.setData(computeSma(activeCandles, 20));
+      ma20SeriesRef.current.setData(computeEma(activeCandles, 20));
     }
     if (ma50SeriesRef.current) {
-      ma50SeriesRef.current.setData(computeSma(activeCandles, 50));
+      ma50SeriesRef.current.setData(computeEma(activeCandles, 50));
     }
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
@@ -332,24 +350,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     const fetchRealCandles = async () => {
       try {
         const res = await api.get('/analysis/candles', {
-          params: { symbol: symUpper, resolution, count: 180 },
+          params: { symbol: symUpper, resolution, count: 200 },
           timeout: 4000,
         });
 
         if (isCancelled) return;
 
         if (res.data?.candles && res.data.candles.length > 0) {
-          activeCandles = res.data.candles.map((c: any) => ({
-            time: c.time,
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-          }));
+          activeCandles = sanitizeCandles(res.data.candles);
           activeVolumes = res.data.candles.map((c: any) => ({
-            time: c.time,
-            value: c.volume || 100,
-            color: c.close >= c.open ? 'rgba(0, 229, 153, 0.35)' : 'rgba(255, 77, 106, 0.35)',
+            time: typeof c.time === 'number' ? c.time : Math.floor(new Date(c.time).getTime() / 1000),
+            value: Number(c.volume) || 100,
+            color: Number(c.close) >= Number(c.open) ? 'rgba(0, 229, 153, 0.35)' : 'rgba(255, 77, 106, 0.35)',
           }));
 
           if (candleSeriesRef.current) {
@@ -362,10 +374,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             volumeSeriesRef.current.setData(activeVolumes);
           }
           if (ma20SeriesRef.current) {
-            ma20SeriesRef.current.setData(computeSma(activeCandles, 20));
+            ma20SeriesRef.current.setData(computeEma(activeCandles, 20));
           }
           if (ma50SeriesRef.current) {
-            ma50SeriesRef.current.setData(computeSma(activeCandles, 50));
+            ma50SeriesRef.current.setData(computeEma(activeCandles, 50));
           }
           if (chartRef.current) {
             chartRef.current.timeScale().fitContent();
@@ -410,15 +422,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             const msg = JSON.parse(event.data);
             if (msg.k) {
               const k = msg.k;
+              const barTime = Math.floor(k.t / 1000) as any;
               const liveBar: CandlestickData = {
-                time: Math.floor(k.t / 1000) as any,
+                time: barTime,
                 open: parseFloat(k.o),
                 high: parseFloat(k.h),
                 low: parseFloat(k.l),
                 close: parseFloat(k.c),
               };
               const liveVol: HistogramData = {
-                time: liveBar.time,
+                time: barTime,
                 value: parseFloat(k.v),
                 color: liveBar.close >= liveBar.open ? 'rgba(0, 229, 153, 0.4)' : 'rgba(255, 77, 106, 0.4)',
               };
@@ -427,13 +440,36 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
                 candleSeriesRef.current.update(liveBar);
               }
               if (areaSeriesRef.current) {
-                areaSeriesRef.current.update({ time: liveBar.time, value: liveBar.close });
+                areaSeriesRef.current.update({ time: barTime, value: liveBar.close });
               }
               if (volumeSeriesRef.current) {
                 volumeSeriesRef.current.update(liveVol);
               }
 
+              // Update activeCandles array accurately
               if (activeCandles.length > 0) {
+                const lastIdx = activeCandles.length - 1;
+                if (activeCandles[lastIdx].time === barTime) {
+                  activeCandles[lastIdx] = liveBar;
+                } else if ((barTime as number) > (activeCandles[lastIdx].time as number)) {
+                  activeCandles.push(liveBar);
+                }
+
+                // Smooth live EMA calculation
+                const k20 = 2 / 21;
+                const k50 = 2 / 51;
+                const prevEma20 = activeCandles.length > 1 ? activeCandles[activeCandles.length - 2].close : liveBar.close;
+                const prevEma50 = activeCandles.length > 1 ? activeCandles[activeCandles.length - 2].close : liveBar.close;
+                const liveEma20 = liveBar.close * k20 + prevEma20 * (1 - k20);
+                const liveEma50 = liveBar.close * k50 + prevEma50 * (1 - k50);
+
+                if (ma20SeriesRef.current) {
+                  ma20SeriesRef.current.update({ time: barTime, value: Math.round(liveEma20 * 100) / 100 });
+                }
+                if (ma50SeriesRef.current) {
+                  ma50SeriesRef.current.update({ time: barTime, value: Math.round(liveEma50 * 100) / 100 });
+                }
+
                 const first = activeCandles[0];
                 const change = Math.round(((liveBar.close - first.open) / first.open) * 10000) / 100;
                 setCurrentOhlc({
@@ -482,6 +518,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             }
             if (areaSeriesRef.current) {
               areaSeriesRef.current.update({ time: last.time, value: realPrice });
+            }
+
+            // Live EMA updates for CME quotes
+            const k20 = 2 / 21;
+            const k50 = 2 / 51;
+            const liveEma20 = realPrice * k20 + last.open * (1 - k20);
+            const liveEma50 = realPrice * k50 + last.open * (1 - k50);
+            if (ma20SeriesRef.current) {
+              ma20SeriesRef.current.update({ time: last.time, value: Math.round(liveEma20 * 100) / 100 });
+            }
+            if (ma50SeriesRef.current) {
+              ma50SeriesRef.current.update({ time: last.time, value: Math.round(liveEma50 * 100) / 100 });
             }
 
             const first = activeCandles[0];

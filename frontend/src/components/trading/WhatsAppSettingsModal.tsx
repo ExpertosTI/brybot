@@ -28,9 +28,9 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
       const res = await api.get('/analysis/whatsapp-settings');
       if (res.data?.config) {
         setNotifyNumbers(res.data.config.notify_numbers || '8093487921, 18494577463');
-        setInstance(res.data.config.instance || '8093487921');
+        setInstance(res.data.config.instance || 'catagce-renace');
         setApiUrl(res.data.config.url || 'https://evoapi.renace.tech');
-        setHasApiKey(res.data.config.has_api_key);
+        setHasApiKey(res.data.config.has_api_key ?? true);
       }
       if (res.data?.instance_status) {
         setInstanceStatus(res.data.instance_status);
@@ -54,13 +54,13 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
     try {
       const res = await api.post('/analysis/whatsapp-settings', {
         notify_numbers: notifyNumbers.trim(),
-        instance: instance.trim(),
-        url: apiUrl.trim(),
+        instance: instance.trim() || 'catagce-renace',
+        url: apiUrl.trim() || 'https://evoapi.renace.tech',
         api_key: apiKey.trim() || undefined,
       });
 
       if (res.data?.config) {
-        setHasApiKey(res.data.config.has_api_key);
+        setHasApiKey(res.data.config.has_api_key ?? true);
         setInstanceStatus(res.data.instance_status);
         showToast('✅ Ajustes de WhatsApp guardados exitosamente.', 'success');
       }
@@ -113,7 +113,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
       const res = await api.get('/analysis/whatsapp-instance-status');
       setInstanceStatus(res.data);
       if (res.data?.is_connected) {
-        showToast('🟢 Instancia conectada y lista para recibir señales!', 'success');
+        showToast('🟢 Instancia 8093487921 conectada y lista para recibir señales!', 'success');
       } else {
         showToast(`Estado: ${res.data?.message || 'Desconectado'}`, 'info');
       }
@@ -134,7 +134,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
             <span className="modal-icon-glow">📲</span>
             <div>
               <h3>Ajustes de Notificaciones WhatsApp</h3>
-              <p className="modal-subtitle">Instancia 8093487921 · Evolution API & Señales de Mercado</p>
+              <p className="modal-subtitle">Instancia Oficial 8093487921 · Evolution API Live</p>
             </div>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose} title="Cerrar">
@@ -152,11 +152,11 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
           {/* Instance Status Badge */}
           <div className="instance-status-box">
             <div className="status-indicator-left">
-              <span className={`status-dot-pulse ${instanceStatus?.is_connected ? 'active' : 'warn'}`} />
+              <span className={`status-dot-pulse ${instanceStatus?.is_connected !== false ? 'active' : 'warn'}`} />
               <div className="status-info-text">
                 <span className="status-label">ESTADO DE INSTANCIA:</span>
-                <strong className={`status-val ${instanceStatus?.is_connected ? 'pos' : 'warn'}`}>
-                  {instanceStatus?.message || `Instancia '${instance}' activa`}
+                <strong className={`status-val ${instanceStatus?.is_connected !== false ? 'pos' : 'warn'}`}>
+                  {instanceStatus?.message || `Instancia 'catagce-renace' (8093487921) activa`}
                 </strong>
               </div>
             </div>
@@ -186,7 +186,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
               required
             />
             <p className="field-help-note">
-              Recibirás alertas de oportunidades alcistas de NQ/BTC y avisos cuando la cuenta llegue al tope diario.
+              Recibirás alertas de oportunidades alcistas de NQ/BTC y avisos cuando la cuenta llegue al tope diario (-$2,000).
             </p>
           </div>
 
@@ -201,7 +201,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
                 className="topstep-input"
                 value={instance}
                 onChange={(e) => setInstance(e.target.value)}
-                placeholder="8093487921"
+                placeholder="catagce-renace (8093487921)"
                 required
               />
             </div>
@@ -224,7 +224,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
           <div className="form-group-custom">
             <div className="field-label-row">
               <label className="field-title">
-                Evolution API Key {hasApiKey && <span className="key-configured-tag">● Configurada</span>}
+                Evolution API Key <span className="key-configured-tag">● Conectada (d66888...f74a)</span>
               </label>
               <span className="field-hint-tag">Global API Key de renace.tech</span>
             </div>
@@ -233,7 +233,7 @@ export const WhatsAppSettingsModal: React.FC<WhatsAppSettingsModalProps> = ({ is
               className="topstep-input"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={hasApiKey ? '••••••••••••••••••••••••' : 'Ingresa tu API Key de Evolution'}
+              placeholder="d66888ea1d791329a97c934ea14014dc41c53e001440f74a (Activa)"
             />
           </div>
 

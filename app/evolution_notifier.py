@@ -10,25 +10,26 @@ logger = logging.getLogger(__name__)
 DEFAULT_EVO_KEY = "d66888ea1d791329a97c934ea14014dc41c53e001440f74a"
 DEFAULT_EVO_INSTANCE = "catagce-renace"  # Active open instance for 8093487921
 
-EVOLUTION_CONFIG = {
-    "url": os.getenv("EVOLUTION_API_URL", "https://evoapi.renace.tech").rstrip("/"),
-    "api_key": os.getenv("EVOLUTION_API_KEY", DEFAULT_EVO_KEY),
-    "instance": os.getenv("EVOLUTION_INSTANCE", DEFAULT_EVO_INSTANCE),
-    "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS", "8093487921, 18494577463"),
-}
-
-
-def _resolve_instance_name(instance: str) -> str:
+def _resolve_instance_name(instance: Optional[str]) -> str:
     """Resolves human-readable phone number instance alias to actual Evolution API instance name."""
+    if not instance:
+        return DEFAULT_EVO_INSTANCE
     inst = instance.strip()
-    if inst in ("8093487921", "18093487921", "renace.tech"):
-        return "catagce-renace"
+    if inst in ("8093487921", "18093487921", "renace.tech", "renace", "catagce-renace", "catagce", ""):
+        return DEFAULT_EVO_INSTANCE
     return inst
+
+EVOLUTION_CONFIG = {
+    "url": (os.getenv("EVOLUTION_API_URL") or "https://evoapi.renace.tech").rstrip("/"),
+    "api_key": os.getenv("EVOLUTION_API_KEY") or DEFAULT_EVO_KEY,
+    "instance": _resolve_instance_name(os.getenv("EVOLUTION_INSTANCE")),
+    "notify_numbers": os.getenv("WHATSAPP_NOTIFY_NUMBERS") or "8093487921, 18494577463",
+}
 
 
 def get_evolution_config() -> Dict[str, Any]:
     """Returns current Evolution API settings with masked API key."""
-    key = EVOLUTION_CONFIG["api_key"]
+    key = EVOLUTION_CONFIG["api_key"] or DEFAULT_EVO_KEY
     masked_key = f"{key[:6]}...{key[-6:]}" if len(key) > 12 else ("***" if key else "")
     return {
         "url": EVOLUTION_CONFIG["url"],
