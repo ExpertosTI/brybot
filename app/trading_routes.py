@@ -57,6 +57,31 @@ async def test_trade(
     adapter = get_adapter(integration)
     return await adapter.place_order({"symbol": "NQU5", "side": "BUY", "quantity": 1})
 
+class BracketOrderRequest(BaseModel):
+    symbol: str
+    side: str
+    quantity: int
+    tp_price: float
+    sl_price: float
+
+@router.post("/bracket-order")
+async def place_bracket_order(
+    req: BracketOrderRequest,
+    current_user: models.User = Depends(get_current_user_model),
+):
+    # Import the client instance from main or create a new one
+    from app.main import tradovate_client
+    result = tradovate_client.place_bracket_order(
+        symbol=req.symbol,
+        action=req.side,
+        qty=req.quantity,
+        tp_price=req.tp_price,
+        sl_price=req.sl_price
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
 @router.post("/webhook")
 async def receive_signal(
     signal: TradingSignal,
