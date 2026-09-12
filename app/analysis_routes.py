@@ -59,12 +59,29 @@ def get_candles(
                 "close": raw["c"][i],
                 "volume": raw["v"][i] if i < len(raw.get("v", [])) else 0,
             })
+        
+        last_price = candles[-1]["close"] if candles else 5500.0
+        first_open = candles[0]["open"] if candles else last_price
+        change_pct = round(((last_price - first_open) / first_open) * 100, 2) if first_open > 0 else 0.0
+
         return {
             "symbol": symbol.upper(),
             "resolution": resolution,
             "candles": candles,
-            "last_price": candles[-1]["close"] if candles else 5500.0,
+            "last_price": last_price,
+            "change_pct": change_pct,
+            "count": len(candles),
         }
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/live-quote")
+def get_live_quote(symbol: str = Query("NQ")) -> Dict[str, Any]:
+    """Fetch the real-time live market quote from Yahoo/Binance."""
+    try:
+        from app.real_market_data import fetch_real_quote
+        return fetch_real_quote(symbol)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

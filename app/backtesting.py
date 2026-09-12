@@ -190,7 +190,7 @@ def _generate_synthetic_ohlc(symbol: str, resolution: str, start: int, end: int)
 def _fetch_ohlc_with_fallback(
     symbol: str, resolution: str, start: int, end: int, client: Optional[TradingViewClient]
 ) -> Dict[str, Any]:
-    """Try TradingView first; fall back to Topstep, then synthetic high-fidelity data."""
+    """Try TradingView first; fall back to Topstep, then real Yahoo/Binance data, then synthetic data."""
     try:
         if client or os.getenv("TRADINGVIEW_API_KEY"):
             return (client or TradingViewClient()).get_ohlc(symbol, resolution, start, end)
@@ -200,7 +200,17 @@ def _fetch_ohlc_with_fallback(
     try:
         return _fetch_topstep_ohlc(symbol, resolution, start, end)
     except Exception:
-        return _generate_synthetic_ohlc(symbol, resolution, start, end)
+        pass
+
+    try:
+        from app.real_market_data import fetch_real_ohlc
+        real_data = fetch_real_ohlc(symbol, resolution, start, end, count=200)
+        if real_data and len(real_data.get("t", [])) > 0:
+            return real_data
+    except Exception:
+        pass
+
+    return _generate_synthetic_ohlc(symbol, resolution, start, end)
 
 
 def _generate_signals(df: pd.DataFrame, buy_threshold: int, sell_threshold: int) -> List[str]:

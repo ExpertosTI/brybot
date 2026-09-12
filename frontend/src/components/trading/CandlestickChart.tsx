@@ -79,6 +79,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const [showAiModal, setShowAiModal] = useState(false);
   const boxStartRef = useRef<{ x: number; y: number } | null>(null);
 
+  const [dataSource, setDataSource] = useState<string>('REAL MARKET FEED');
+
   const [currentOhlc, setCurrentOhlc] = useState<{
     open: number;
     high: number;
@@ -88,8 +90,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     change: number;
   } | null>(null);
 
-  // Helper to generate synthetic data
-  const generateSyntheticCandles = useCallback((sym: string, res: string, count = 120) => {
+  // Helper for initial quick fallback if server is loading
+  const generateInitialFallback = useCallback((sym: string, res: string, count = 120) => {
     const base = BASE_PRICES[sym.toUpperCase()] || 19780.0;
     const volatility = base * 0.0009;
     const stepSeconds = (res === 'D' ? 1440 : parseInt(res, 10) || 1) * 60;
@@ -236,10 +238,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     let activeCandles: CandlestickData[] = [];
     let activeVolumes: HistogramData[] = [];
 
-    // Instant synchronous populate
-    const initialSynth = generateSyntheticCandles(symbol, resolution);
-    activeCandles = initialSynth.candles;
-    activeVolumes = initialSynth.volumes;
+    // Initialize with quick fallback while real candles load
+    const initialFallback = generateInitialFallback(symbol, resolution);
+    activeCandles = initialFallback.candles;
+    activeVolumes = initialFallback.volumes;
     candleSeries.setData(activeCandles);
     areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
     volumeSeries.setData(activeVolumes);
@@ -247,30 +249,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     ma50Series.setData(computeSma(activeCandles, 50));
     chart.timeScale().fitContent();
 
-    const lastInit = activeCandles[activeCandles.length - 1];
-    const firstInit = activeCandles[0];
-    const changeInit = Math.round(((lastInit.close - firstInit.open) / firstInit.open) * 10000) / 100;
-    const lastVolInit = (activeVolumes[activeVolumes.length - 1]?.value as number) || 500;
-    setCurrentOhlc({
-      open: lastInit.open,
-      high: lastInit.high,
-      low: lastInit.low,
-      close: lastInit.close,
-      volume: lastVolInit,
-      change: changeInit,
-    });
-    if (onPriceUpdate) {
-      onPriceUpdate(lastInit.close, changeInit, lastInit.high, lastInit.low, lastVolInit);
-    }
+    const symUpper = symbol.toUpperCase().trim();
+    const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA'].includes(symUpper);
 
-    // Background sync
-    const syncServerData = async () => {
+    // Fetch REAL historical candles from backend (Yahoo / Binance / Topstep)
+    const fetchRealCandles = async () => {
       try {
         const res = await api.get('/analysis/candles', {
-          params: { symbol, resolution, count: 120 },
-          timeout: 2000,
+          params: { symbol: symUpper, resolution, count: 180 },
+          timeout: 4000,
         });
-        if (res.data?.candles?.length) {
+
+        if (res.data?.candles && res.data.candles.length > 0) {
           activeCandles = res.data.candles.map((c: any) => ({
             time: c.time,
             open: c.open,
@@ -283,18 +273,42 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             value: c.volume || 100,
             color: c.close >= c.open ? 'rgba(0, 229, 153, 0.35)' : 'rgba(255, 77, 106, 0.35)',
           }));
+
           candleSeries.setData(activeCandles);
           areaSeries.setData(activeCandles.map((c) => ({ time: c.time, value: c.close })));
           volumeSeries.setData(activeVolumes);
           ma20Series.setData(computeSma(activeCandles, 20));
           ma50Series.setData(computeSma(activeCandles, 50));
+          chart.timeScale().fitContent();
+
+          const lastBar = activeCandles[activeCandles.length - 1];
+          const firstBar = activeCandles[0];
+          const changePct = Math.round(((lastBar.close - firstBar.open) / firstBar.open) * 10000) / 100;
+          const lastVol = (activeVolumes[activeVolumes.length - 1]?.value as number) || 0;
+
+          setCurrentOhlc({
+            open: lastBar.open,
+            high: lastBar.high,
+            low: lastBar.low,
+            close: lastBar.close,
+            volume: lastVol,
+            change: changePct,
+          });
+
+          setDataSource(isCrypto ? 'BINANCE REALTIME' : 'CME / YAHOO REALTIME');
+
+          if (onPriceUpdate) {
+            onPriceUpdate(lastBar.close, changePct, lastBar.high, lastBar.low, lastVol);
+          }
         }
       } catch {
-        // Keeps instant synthetic candles
+        // Keeps fallback if network error
       }
     };
-    syncServerData();
 
+    fetchRealCandles();
+
+    // Crosshair subscription for OHLC legend
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.seriesData.get(candleSeries)) {
         if (activeCandles.length > 0) {
@@ -328,51 +342,114 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
       }
     });
 
-    const tickInterval = setInterval(() => {
-      if (!candleSeriesRef.current || activeCandles.length === 0) return;
+    let ws: WebSocket | null = null;
+    let pollInterval: any = null;
 
-      const lastIdx = activeCandles.length - 1;
-      const last = { ...activeCandles[lastIdx] };
-      const base = BASE_PRICES[symbol.toUpperCase()] || 19780.0;
-      const tickDelta = (Math.random() - 0.495) * (base * 0.00015);
-      const newClose = Math.round((last.close + tickDelta) * 100) / 100;
-      const newHigh = Math.round(Math.max(last.high, newClose) * 100) / 100;
-      const newLow = Math.round(Math.min(last.low, newClose) * 100) / 100;
-      const volDelta = Math.floor(Math.random() * 5 + 1);
+    if (isCrypto) {
+      // Connect to Binance Public WebSocket for real-time crypto ticks
+      try {
+        const binancePair = `${symUpper.toLowerCase()}usdt`;
+        const binanceInterval = resolution === 'D' ? '1d' : `${resolution}m`;
+        ws = new WebSocket(`wss://stream.binance.com:9443/ws/${binancePair}@kline_${binanceInterval}`);
 
-      last.close = newClose;
-      last.high = newHigh;
-      last.low = newLow;
-      activeCandles[lastIdx] = last;
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.k) {
+              const k = msg.k;
+              const liveBar: CandlestickData = {
+                time: Math.floor(k.t / 1000) as any,
+                open: parseFloat(k.o),
+                high: parseFloat(k.h),
+                low: parseFloat(k.l),
+                close: parseFloat(k.c),
+              };
+              const liveVol: HistogramData = {
+                time: liveBar.time,
+                value: parseFloat(k.v),
+                color: liveBar.close >= liveBar.open ? 'rgba(0, 229, 153, 0.4)' : 'rgba(255, 77, 106, 0.4)',
+              };
 
-      candleSeriesRef.current.update(last);
-      if (areaSeriesRef.current) {
-        areaSeriesRef.current.update({ time: last.time, value: newClose });
+              if (candleSeriesRef.current) {
+                candleSeriesRef.current.update(liveBar);
+              }
+              if (areaSeriesRef.current) {
+                areaSeriesRef.current.update({ time: liveBar.time, value: liveBar.close });
+              }
+              if (volumeSeriesRef.current) {
+                volumeSeriesRef.current.update(liveVol);
+              }
+
+              if (activeCandles.length > 0) {
+                const first = activeCandles[0];
+                const change = Math.round(((liveBar.close - first.open) / first.open) * 10000) / 100;
+                setCurrentOhlc({
+                  open: liveBar.open,
+                  high: liveBar.high,
+                  low: liveBar.low,
+                  close: liveBar.close,
+                  volume: liveVol.value,
+                  change,
+                });
+                if (onPriceUpdate) {
+                  onPriceUpdate(liveBar.close, change, liveBar.high, liveBar.low, liveVol.value);
+                }
+              }
+            }
+          } catch {
+            // ignore malformed ws messages
+          }
+        };
+      } catch (err) {
+        console.warn('Binance WS error:', err);
       }
+    } else {
+      // For Futures / Stocks (NQ, ES, YM, GC, CL): Poll real CME quotes every 2.5 seconds
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await api.get('/analysis/live-quote', {
+            params: { symbol: symUpper },
+            timeout: 2000,
+          });
 
-      if (volumeSeriesRef.current && activeVolumes.length) {
-        const lastVol = { ...activeVolumes[lastIdx] };
-        lastVol.value = ((lastVol.value as number) || 0) + volDelta;
-        lastVol.color = newClose >= last.open ? 'rgba(0, 229, 153, 0.4)' : 'rgba(255, 77, 106, 0.4)';
-        activeVolumes[lastIdx] = lastVol;
-        volumeSeriesRef.current.update(lastVol);
-      }
+          if (res.data?.price && res.data.price > 0 && activeCandles.length > 0) {
+            const realPrice = res.data.price;
+            const lastIdx = activeCandles.length - 1;
+            const last = { ...activeCandles[lastIdx] };
 
-      const first = activeCandles[0];
-      const change = Math.round(((newClose - first.open) / first.open) * 10000) / 100;
-      setCurrentOhlc({
-        open: last.open,
-        high: newHigh,
-        low: newLow,
-        close: newClose,
-        volume: (activeVolumes[lastIdx]?.value as number) || 0,
-        change,
-      });
+            last.close = realPrice;
+            last.high = Math.max(last.high, realPrice);
+            last.low = Math.min(last.low, realPrice);
+            activeCandles[lastIdx] = last;
 
-      if (onPriceUpdate) {
-        onPriceUpdate(newClose, change, newHigh, newLow, (activeVolumes[lastIdx]?.value as number) || 0);
-      }
-    }, 1200);
+            if (candleSeriesRef.current) {
+              candleSeriesRef.current.update(last);
+            }
+            if (areaSeriesRef.current) {
+              areaSeriesRef.current.update({ time: last.time, value: realPrice });
+            }
+
+            const first = activeCandles[0];
+            const change = res.data.change ?? (Math.round(((realPrice - first.open) / first.open) * 10000) / 100);
+
+            setCurrentOhlc({
+              open: last.open,
+              high: last.high,
+              low: last.low,
+              close: realPrice,
+              volume: res.data.volume || (activeVolumes[lastIdx]?.value as number) || 0,
+              change,
+            });
+
+            if (onPriceUpdate) {
+              onPriceUpdate(realPrice, change, last.high, last.low, res.data.volume || 0);
+            }
+          }
+        } catch {
+          // ignore transient poll error
+        }
+      }, 2500);
+    }
 
     const resizeObserver = new ResizeObserver((entries) => {
       if (entries.length === 0 || !entries[0].contentRect) return;
@@ -382,13 +459,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     resizeObserver.observe(container);
 
     return () => {
-      clearInterval(tickInterval);
+      if (ws) {
+        ws.close();
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateSyntheticCandles, height, compact]);
+  }, [symbol, resolution, chartType, showMa20, showMa50, showVolume, generateInitialFallback, height, compact]);
 
   // Set markers
   useEffect(() => {
@@ -588,7 +670,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
           <span>L: <strong className="neg">{currentOhlc.low.toFixed(2)}</strong></span>
           <span>C: <strong>{currentOhlc.close.toFixed(2)}</strong></span>
           <span>Vol: <strong>{currentOhlc.volume.toLocaleString()}</strong></span>
-          <span className="engine-status-tag">CME DIRECT FEED</span>
+          <span className="engine-status-tag">● {dataSource}</span>
         </div>
       )}
 
