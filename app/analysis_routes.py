@@ -273,11 +273,13 @@ def get_whatsapp_instance_status_endpoint() -> Dict[str, Any]:
 def get_historical_patterns_endpoint(
     symbol: str = Query("NQ"),
     years: int = Query(10, ge=1, le=20),
+    epoch: str = Query("all"),
+    news_category: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
-    """Retrieves 5-10 year statistical seasonality, hourly afluencia, and recurring institutional patterns."""
+    """Retrieves 5-10 year statistical seasonality, hourly afluencia, seasonal epoch comparisons and news analogs."""
     from app.historical_patterns import get_historical_pattern_analysis
     try:
-        return get_historical_pattern_analysis(symbol=symbol, years=years)
+        return get_historical_pattern_analysis(symbol=symbol, years=years, epoch=epoch, news_category=news_category)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

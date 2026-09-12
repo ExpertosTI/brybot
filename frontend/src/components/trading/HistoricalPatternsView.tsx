@@ -38,6 +38,43 @@ interface HourlyAfluencia {
   note?: string;
 }
 
+interface EpochInfo {
+  id: string;
+  name: string;
+  description: string;
+  winrate_modifier: number;
+  bias: string;
+}
+
+interface InterannualRecord {
+  year: number;
+  season_return: number;
+  win_rate: number;
+  max_drawdown: number;
+  dominant_catalyst: string;
+  regime: string;
+}
+
+interface SimilarNewsOccurrence {
+  date: string;
+  event: string;
+  initial_15m_reaction: string;
+  session_outcome: string;
+  verdict: string;
+}
+
+interface SimilarNewsAnalog {
+  id: string;
+  category: string;
+  title: string;
+  type_label: string;
+  historical_winrate_long: number;
+  avg_15m_range_pts: number;
+  avg_session_change: string;
+  golden_rule: string;
+  past_occurrences: SimilarNewsOccurrence[];
+}
+
 interface HistoricalDataResponse {
   symbol: string;
   name: string;
@@ -57,6 +94,10 @@ interface HistoricalDataResponse {
     verdict_color: string;
     recommendation_action: string;
   };
+  selected_epoch?: EpochInfo;
+  available_epochs?: EpochInfo[];
+  interannual_season_comparison?: InterannualRecord[];
+  similar_news_analogs?: SimilarNewsAnalog[];
   monthly_seasonality: MonthlyStat[];
   weekday_stats: WeekdayStat[];
   hourly_afluencia: HourlyAfluencia[];
@@ -76,11 +117,16 @@ interface AIRoadmapResponse {
 export const HistoricalPatternsView: React.FC = () => {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('NQ');
   const [selectedYears, setSelectedYears] = useState<number>(10);
+  const [selectedEpoch, setSelectedEpoch] = useState<string>('all');
+  const [selectedNewsCategory, setSelectedNewsCategory] = useState<string>('all');
+
   const [data, setData] = useState<HistoricalDataResponse | null>(null);
   const [roadmap, setRoadmap] = useState<AIRoadmapResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingRoadmap, setLoadingRoadmap] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'seasonality' | 'afluencia' | 'patterns' | 'ai_roadmap'>('seasonality');
+  const [activeTab, setActiveTab] = useState<
+    'seasonality' | 'interannual_season' | 'similar_news' | 'afluencia' | 'patterns' | 'ai_roadmap'
+  >('seasonality');
 
   const symbols = [
     { id: 'NQ', name: 'Nasdaq 100', icon: '💻' },
@@ -92,7 +138,9 @@ export const HistoricalPatternsView: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<HistoricalDataResponse>(`/analysis/historical-patterns?symbol=${selectedSymbol}&years=${selectedYears}`);
+      const res = await api.get<HistoricalDataResponse>(
+        `/analysis/historical-patterns?symbol=${selectedSymbol}&years=${selectedYears}&epoch=${selectedEpoch}&news_category=${selectedNewsCategory}`
+      );
       if (res.data && typeof res.data === 'object') {
         setData(res.data);
       }
@@ -122,7 +170,7 @@ export const HistoricalPatternsView: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedSymbol, selectedYears]);
+  }, [selectedSymbol, selectedYears, selectedEpoch, selectedNewsCategory]);
 
   useEffect(() => {
     if (activeTab === 'ai_roadmap' && !roadmap) {
@@ -134,30 +182,34 @@ export const HistoricalPatternsView: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center p-16 space-y-4">
         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-400 font-medium">Analizando 10 años de datos históricos institucionales...</p>
+        <p className="text-gray-400 font-medium">Analizando 10 años de datos históricos, temporadas y precedentes de noticias...</p>
       </div>
     );
   }
 
+  const activeEpoch = data?.selected_epoch || {
+    id: 'all',
+    name: 'Historial Decenal',
+    description: '10 años completos sin filtro de régimen.',
+    bias: 'NEUTRAL BASE',
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn text-white">
-      {/* Header & Controls Bar */}
+      {/* Header & Asset/Year Controls */}
       <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-2xl backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-xl shadow-lg">🏛️</span>
-            <div>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">
-                Motor Cuantitativo de Patrones (5 a 10 Años)
-              </h2>
-              <p className="text-xs text-gray-400">
-                Estacionalidad fractal, horarios de afluencia institucional y probabilidades para {data?.name || selectedSymbol}
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <span className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-xl shadow-lg">🏛️</span>
+          <div>
+            <h2 className="text-xl font-bold bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">
+              Motor Cuantitativo de Patrones (5 a 10 Años)
+            </h2>
+            <p className="text-xs text-gray-400">
+              Estacionalidad decenal, comparativas de temporadas, horarios de afluencia y noticias análogas para {data?.name || selectedSymbol}
+            </p>
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Asset Pills */}
           <div className="flex bg-[#1F2937] p-1 rounded-xl border border-gray-700/60">
@@ -182,7 +234,7 @@ export const HistoricalPatternsView: React.FC = () => {
 
           {/* Years Selector */}
           <div className="flex bg-[#1F2937] p-1 rounded-xl border border-gray-700/60 text-xs">
-            {[5, 10].map((yr) => (
+            {[3, 5, 10].map((yr) => (
               <button
                 key={yr}
                 onClick={() => setSelectedYears(yr)}
@@ -197,18 +249,60 @@ export const HistoricalPatternsView: React.FC = () => {
         </div>
       </div>
 
+      {/* NEW: Filter Toolbar for Market Epochs & Seasons */}
+      <div className="bg-[#0e1626] border-2 border-indigo-500/30 rounded-2xl p-4 shadow-xl space-y-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
+            <span>⏱️</span>
+            <span>Filtro de Épocas & Temporadas de Mercado:</span>
+          </div>
+          <span className="text-[11px] bg-indigo-950/70 border border-indigo-500/40 text-indigo-300 px-2.5 py-0.5 rounded-full font-semibold">
+            Régimen Activo: {activeEpoch.bias}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {[
+            { id: 'all', label: 'Historial 10 Años', icon: '🌐' },
+            { id: 'current_season', label: 'Temporada Actual (Q3/Sep)', icon: '🍁' },
+            { id: 'election_years', label: 'Años Electorales USA', icon: '🗳️' },
+            { id: 'rate_cut_cycle', label: 'Ciclos Bajas Tasas FED', icon: '📉' },
+            { id: 'earnings_season', label: 'Temporada Earnings', icon: '📊' },
+          ].map((ep) => (
+            <button
+              key={ep.id}
+              onClick={() => setSelectedEpoch(ep.id)}
+              className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-left flex flex-col gap-1 ${
+                selectedEpoch === ep.id
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-400/30'
+                  : 'bg-[#151d30] border-gray-800 text-gray-300 hover:bg-[#1f2b45] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <span>{ep.icon}</span>
+                <span className="truncate">{ep.label}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <p className="text-[11px] text-gray-400 italic pt-1 border-t border-gray-800/80">
+          💡 <strong>Contexto del filtro:</strong> {activeEpoch.description}
+        </p>
+      </div>
+
       {/* 4 Metric Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
           <div className="text-gray-400 text-xs font-medium">Retorno Anual Promedio ({selectedYears}A)</div>
           <div className="text-2xl font-bold text-emerald-400 mt-1">+{data?.avg_annual_return_10y ?? 0}%</div>
-          <div className="text-[11px] text-gray-500 mt-1">Rentabilidad sostenida 10 años</div>
+          <div className="text-[11px] text-gray-500 mt-1">Rentabilidad sostenida decenal</div>
         </div>
 
         <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
-          <div className="text-gray-400 text-xs font-medium">Win Rate Base Histórico</div>
-          <div className="text-2xl font-bold text-indigo-400 mt-1">{data?.historical_winrate_baseline ?? 0}%</div>
-          <div className="text-[11px] text-gray-500 mt-1">Tasa de acierto matemática</div>
+          <div className="text-gray-400 text-xs font-medium">Win Rate en Esta Época</div>
+          <div className="text-2xl font-bold text-indigo-400 mt-1">{data?.current_context?.month_historical_winrate ?? 60}%</div>
+          <div className="text-[11px] text-gray-500 mt-1">Ajustado por el régimen seleccionado</div>
         </div>
 
         <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
@@ -242,16 +336,18 @@ export const HistoricalPatternsView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 bg-indigo-900/40 px-3.5 py-2 rounded-xl border border-indigo-500/20 text-xs">
-            <span className="text-gray-400">Veredicto 10A:</span>
+            <span className="text-gray-400">Veredicto:</span>
             <span className="font-bold text-emerald-400">{data.current_context?.verdict_status || 'NEUTRAL'}</span>
           </div>
         </div>
       )}
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex border-b border-gray-800 gap-6 text-sm font-medium">
+      <div className="flex border-b border-gray-800 gap-6 text-sm font-medium overflow-x-auto">
         {[
           { id: 'seasonality', label: '📅 Estacionalidad (12 Meses & Semanal)' },
+          { id: 'interannual_season', label: '🍁 Comparativa Temporada Actual (Año x Año)' },
+          { id: 'similar_news', label: '📰 Noticias Similares & Reacciones Históricas' },
           { id: 'afluencia', label: '⚡ Horas de Afluencia y Liquidez' },
           { id: 'patterns', label: '🎯 Patrones Recurrentes (Win Rate)' },
           { id: 'ai_roadmap', label: '🧠 Roadmap Cuantitativo Gemini' },
@@ -259,7 +355,7 @@ export const HistoricalPatternsView: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-3 transition-all relative ${
+            className={`pb-3 transition-all relative whitespace-nowrap ${
               activeTab === tab.id
                 ? 'text-indigo-400 font-bold border-b-2 border-indigo-500'
                 : 'text-gray-400 hover:text-gray-200'
@@ -270,10 +366,9 @@ export const HistoricalPatternsView: React.FC = () => {
         ))}
       </div>
 
-      {/* TAB 1: Seasonality */}
+      {/* TAB 1: Monthly Seasonality */}
       {activeTab === 'seasonality' && (
         <div className="space-y-6">
-          {/* Monthly Seasonality Matrix */}
           <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-4">
             <h3 className="text-base font-bold text-gray-200 flex items-center gap-2">
               <span>📊</span> Rendimiento y Tasa de Acierto Mes a Mes ({selectedYears} Años)
@@ -354,7 +449,159 @@ export const HistoricalPatternsView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: Hourly Afluencia */}
+      {/* TAB 2: Interannual Season Comparison (Year by Year) */}
+      {activeTab === 'interannual_season' && (
+        <div className="space-y-5">
+          <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <h3 className="text-base font-bold text-gray-200 flex items-center gap-2">
+                  <span>🍁</span> Comparativa Interanual de la Temporada Actual ({data?.current_context?.month_name || 'Septiembre'} / Q3)
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  ¿Cómo se ha comportado esta misma época en cada uno de los últimos 10 años y qué catalizador dominó el mercado?
+                </p>
+              </div>
+              <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-xl border border-indigo-500/30 font-bold">
+                10 Años de Datos Verificados (2015 - 2024)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {(data?.interannual_season_comparison || []).map((rec) => {
+                const isPositive = rec.season_return >= 0;
+                return (
+                  <div
+                    key={rec.year}
+                    className="bg-[#151d30]/70 border border-gray-800 hover:border-indigo-500/40 rounded-xl p-4 space-y-2.5 transition-all"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-base font-extrabold text-white px-2 py-0.5 bg-gray-800 rounded-md">
+                          {rec.year}
+                        </span>
+                        <span className="text-xs text-indigo-300 font-semibold">{rec.regime}</span>
+                      </div>
+                      <div className={`text-base font-extrabold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isPositive ? `+${rec.season_return}%` : `${rec.season_return}%`}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-[#1F2937]/50 p-2 rounded-lg">
+                        <span className="text-[10px] text-gray-400 block">Win Rate de la Temporada:</span>
+                        <strong className="text-gray-200">{rec.win_rate}%</strong>
+                      </div>
+                      <div className="bg-[#1F2937]/50 p-2 rounded-lg">
+                        <span className="text-[10px] text-gray-400 block">Máximo Drawdown:</span>
+                        <strong className="text-rose-400">{rec.max_drawdown}%</strong>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-gray-300 leading-relaxed border-t border-gray-800/80 pt-2">
+                      📌 <strong>Catalizador:</strong> {rec.dominant_catalyst}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Similar News Analogs & Empirical Market Reactions */}
+      {activeTab === 'similar_news' && (
+        <div className="space-y-5">
+          {/* News Category Filter Pills */}
+          <div className="flex flex-wrap items-center gap-2 bg-[#111827] border border-gray-800 p-2 rounded-2xl">
+            <span className="text-xs font-bold text-gray-400 pl-2">Tipo de Noticia:</span>
+            {[
+              { id: 'all', label: 'Todas las Noticias' },
+              { id: 'rate_decision', label: '🏛️ Tasas FED / FOMC' },
+              { id: 'cpi_inflation', label: '📈 Inflación / CPI' },
+              { id: 'nfp_jobs', label: '💼 Empleo / NFP' },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedNewsCategory(cat.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  selectedNewsCategory === cat.id
+                    ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md'
+                    : 'bg-[#1F2937] text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Cards for each similar news type */}
+          <div className="space-y-4">
+            {(data?.similar_news_analogs || []).map((analog) => (
+              <div
+                key={analog.id}
+                className="bg-[#111827] border border-gray-800 hover:border-amber-500/30 rounded-2xl p-5 shadow-xl space-y-4 transition-all"
+              >
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      {analog.type_label}
+                    </span>
+                    <h4 className="text-lg font-bold text-white mt-1">{analog.title}</h4>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-[10px] text-gray-400">Win Rate Alcista</div>
+                      <div className="text-base font-extrabold text-emerald-400">{analog.historical_winrate_long}%</div>
+                    </div>
+                    <div className="text-right border-l border-gray-800 pl-3">
+                      <div className="text-[10px] text-gray-400">Vela 15m Promedio</div>
+                      <div className="text-base font-extrabold text-amber-400">±{analog.avg_15m_range_pts} pts</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Golden Rule */}
+                <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-300">
+                    <span>👑</span> Regla de Oro Cuantitativa Anti-Trampas:
+                  </div>
+                  <p className="leading-relaxed">{analog.golden_rule}</p>
+                </div>
+
+                {/* Past Occurrences / Empirical Precedents */}
+                <div className="space-y-2">
+                  <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Precedentes Históricos Recientes (Últimas Ocurrencias Similares):
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {analog.past_occurrences.map((occ, idx) => (
+                      <div key={idx} className="bg-[#1F2937]/40 border border-gray-800 p-3 rounded-xl space-y-1.5 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono font-bold text-indigo-300">{occ.date}</span>
+                          <span className="text-[10px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded font-semibold">
+                            15m: {occ.initial_15m_reaction}
+                          </span>
+                        </div>
+                        <div className="font-semibold text-gray-200">{occ.event}</div>
+                        <div className="text-gray-400 text-[11px]">
+                          <strong>Resultado Día:</strong> {occ.session_outcome}
+                        </div>
+                        <div className="text-emerald-400/90 text-[10px] italic">
+                          "{occ.verdict}"
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: Hourly Afluencia */}
       {activeTab === 'afluencia' && (
         <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-5">
           <div className="flex justify-between items-center">
@@ -391,7 +638,6 @@ export const HistoricalPatternsView: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Volume Bar */}
                 <div className="flex-1 space-y-1">
                   <div className="flex justify-between text-xs text-gray-400">
                     <span>Afluencia / Liquidez:</span>
@@ -405,7 +651,6 @@ export const HistoricalPatternsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Note */}
                 <div className="md:w-64 text-xs text-gray-300">
                   {h.note || 'Sesión de baja volatilidad'}
                 </div>
@@ -415,7 +660,7 @@ export const HistoricalPatternsView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: Recurrent Patterns */}
+      {/* TAB 5: Recurrent Patterns */}
       {activeTab === 'patterns' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -461,7 +706,7 @@ export const HistoricalPatternsView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: AI Roadmap */}
+      {/* TAB 6: AI Roadmap */}
       {activeTab === 'ai_roadmap' && (
         <div className="bg-[#111827] border border-gray-800 rounded-2xl p-6 shadow-2xl space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -470,7 +715,7 @@ export const HistoricalPatternsView: React.FC = () => {
                 <span>🧠</span> Asesor Cuantitativo Gemini (Roadmap 10 Años)
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">
-                Estrategia semanal sintetizada con base en el historial estadístico de {data?.name}
+                Estrategia semanal sintetizada con base en el historial estadístico y la época de {data?.name}
               </p>
             </div>
             <button
@@ -494,7 +739,6 @@ export const HistoricalPatternsView: React.FC = () => {
 
           {roadmap && (
             <div className="space-y-5 animate-fadeIn">
-              {/* Top Banner */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-[#1F2937]/60 border border-gray-800 rounded-xl p-4">
                   <div className="text-xs text-gray-400">Sesgo Recomendado</div>
@@ -510,17 +754,15 @@ export const HistoricalPatternsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Summary */}
               <div className="bg-indigo-950/30 border border-indigo-500/30 rounded-xl p-4.5 space-y-2">
                 <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Dictamen Cuantitativo</h4>
                 <p className="text-sm text-gray-200 leading-relaxed">{roadmap.executive_summary}</p>
               </div>
 
-              {/* Action Steps */}
               <div className="space-y-2.5">
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Plan de Acción Paso a Paso</h4>
                 <div className="space-y-2">
-                  {roadmap.action_steps.map((step, idx) => (
+                  {(roadmap.action_steps || []).map((step, idx) => (
                     <div key={idx} className="bg-[#1F2937]/40 border border-gray-800 p-3 rounded-xl text-xs text-gray-300 flex items-start gap-2.5">
                       <span className="font-bold text-indigo-400">#{idx + 1}</span>
                       <span>{step}</span>
