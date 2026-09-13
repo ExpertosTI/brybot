@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api';
+import '../../styles-quant.css';
 
 interface EconomicEvent {
   id: string;
@@ -90,232 +91,238 @@ export const MacroSentinelView: React.FC = () => {
   const dxyChange = sentiment?.dxy?.change ?? 0;
 
   return (
-    <div className="space-y-6 animate-fadeIn text-white">
+    <div className="quant-container">
       {/* 1. Header Bar */}
-      <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-2xl backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 bg-gradient-to-br from-rose-500 to-amber-600 rounded-xl text-xl shadow-lg">🌐</span>
+      <section className="quant-hero-panel">
+        <div className="quant-hero-title-group">
+          <div className="quant-hero-icon" style={{ background: 'linear-gradient(135deg, #f43f5e, #f59e0b)' }}>
+            🌐
+          </div>
           <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-white via-rose-200 to-amber-300 bg-clip-text text-transparent">
-              Centinela Macroeconómico, Noticias & Sentimiento Institucional
+            <h2 className="quant-hero-heading">
+              Centinela Macroeconómico, Noticias & Sentimiento
             </h2>
-            <p className="text-xs text-gray-400">
+            <div className="quant-hero-subheading">
               Datos 100% reales en vivo de volatilidad (VIX), DXY, Fear & Greed y calendario de alto impacto
-            </p>
+            </div>
           </div>
         </div>
 
         <button
+          type="button"
           onClick={fetchMacroData}
           disabled={loading}
-          className="px-4 py-2 bg-[#1F2937] hover:bg-gray-700 text-xs font-bold rounded-xl border border-gray-700 transition-all flex items-center gap-2"
+          className="quant-pill-btn active"
+          style={{ padding: '0.55rem 1.1rem' }}
         >
           <span className={loading ? 'animate-spin' : ''}>🔄</span>
           <span>Actualizar Telemetría</span>
         </button>
-      </div>
+      </section>
 
-      {/* 2. Intermarket Health & Volatility Metric Gauges */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2. Volatility & Health Metric Gauges */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
         {/* VIX Card */}
-        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-2">
-          <div className="flex justify-between items-center text-xs text-gray-400">
-            <span className="font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-              VIX (CBOE Volatilidad)
+        <div style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,20,35,0.9))', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '16px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
+            <span style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span className="quant-live-dot" style={{ background: '#f43f5e' }}></span>
+              VIX (Volatilidad CBOE)
             </span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${vixChange <= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: '4px', background: vixChange <= 0 ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)', color: vixChange <= 0 ? '#34d399' : '#f43f5e' }}>
               {vixChange >= 0 ? `+${vixChange}%` : `${vixChange}%`}
             </span>
           </div>
-          <div className="text-3xl font-extrabold text-white">
+          <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
             {sentiment?.vix?.price ?? 14.85}
           </div>
-          <div className="text-xs font-semibold text-emerald-400">
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#34d399' }}>
             {sentiment?.vix?.status ?? 'Baja Volatilidad'}
           </div>
-          <p className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/80">
-            {sentiment?.vix?.interpretation ?? 'Mercado calmado, favorable para setups técnicos.'}
-          </p>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.4rem' }}>
+            {sentiment?.vix?.interpretation ?? 'Mercado calmado, favorable para ejecuciones técnicas.'}
+          </div>
         </div>
 
         {/* DXY Card */}
-        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-2">
-          <div className="flex justify-between items-center text-xs text-gray-400">
-            <span className="font-bold flex items-center gap-1.5">
-              💵 Dólar Index (DXY)
-            </span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${dxyChange >= 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(35,28,20,0.9))', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '16px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
+            <span style={{ fontWeight: 800 }}>💵 Dólar Index (DXY)</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }}>
               {dxyChange >= 0 ? `+${dxyChange}%` : `${dxyChange}%`}
             </span>
           </div>
-          <div className="text-3xl font-extrabold text-white">
+          <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
             {sentiment?.dxy?.price ?? 101.42}
           </div>
-          <div className="text-xs font-semibold text-amber-400">
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24' }}>
             {sentiment?.dxy?.bias ?? 'Presión Neutra'}
           </div>
-          <p className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/80">
-            Si el DXY retrocede, la presión compradora sobre NASDAQ y S&P aumenta.
-          </p>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.4rem' }}>
+            Si el DXY retrocede, la presión compradora sobre Nasdaq y S&P aumenta.
+          </div>
         </div>
 
-        {/* Crypto Fear & Greed */}
-        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-2">
-          <div className="flex justify-between items-center text-xs text-gray-400">
-            <span className="font-bold flex items-center gap-1.5">
-              🪙 Fear & Greed (Cripto)
-            </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+        {/* Fear & Greed Card */}
+        <div style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(28,18,45,0.9))', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '16px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
+            <span style={{ fontWeight: 800 }}>🪙 Fear & Greed</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(168,85,247,0.2)', color: '#c084fc' }}>
               En Vivo
             </span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-purple-400">
-              {sentiment?.fear_and_greed?.value ?? 60}
-            </span>
-            <span className="text-xs text-gray-400">/ 100</span>
+          <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#c084fc', letterSpacing: '-0.02em' }}>
+            {sentiment?.fear_and_greed?.value ?? 60} <span style={{ fontSize: '1rem', color: '#94a3b8' }}>/ 100</span>
           </div>
-          <div className="text-xs font-semibold text-purple-300">
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e9d5ff' }}>
             {sentiment?.fear_and_greed?.classification ?? 'Greed (Apetito por riesgo)'}
           </div>
-          <p className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/80">
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.4rem' }}>
             Fuente verificada: {sentiment?.fear_and_greed?.source ?? 'Alternative.me API'}
-          </p>
+          </div>
         </div>
 
-        {/* Intermarket Regime */}
-        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-2">
-          <div className="text-xs text-gray-400 font-bold flex items-center gap-1.5">
+        {/* Global Flow Regime */}
+        <div style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(16,30,40,0.9))', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '16px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8' }}>
             ⚖️ Régimen de Flujo Global
           </div>
-          <div className="text-lg font-bold text-emerald-300 mt-1">
+          <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#38bdf8', letterSpacing: '-0.01em', marginTop: '0.4rem' }}>
             {sentiment?.intermarket_regime ?? 'RISK-ON EQUITIES'}
           </div>
-          <div className="text-xs text-gray-300">
-            Wall St Sentiment: <strong className="text-white">{sentiment?.wall_street_sentiment?.score ?? 68}/100</strong>
+          <div style={{ fontSize: '0.8rem', color: '#e2e8f0' }}>
+            Wall St Sentiment: <strong style={{ color: '#ffffff' }}>{sentiment?.wall_street_sentiment?.score ?? 68}/100</strong>
           </div>
-          <p className="text-[10px] text-gray-500 pt-1 border-t border-gray-800/80">
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.4rem' }}>
             {sentiment?.wall_street_sentiment?.state ?? 'Mercado alcista con flujo hacia activos de riesgo.'}
-          </p>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* 3. News Protection Status Banner */}
+      {/* 3. Automatic News Protection Banner */}
       {lockout && (
-        <div className="bg-gradient-to-r from-gray-900 via-rose-950/30 to-[#111827] border border-rose-500/30 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🛡️</span>
+        <section style={{ background: 'linear-gradient(135deg, rgba(30,15,20,0.9), rgba(15,23,42,0.9))', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '16px', padding: '1.25rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <span style={{ fontSize: '1.8rem' }}>🛡️</span>
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-rose-300">
+              <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: '#fda4af', letterSpacing: '0.04em' }}>
                 Protección Automática de Noticias de Alto Impacto
               </div>
-              <div className="text-sm font-semibold text-white">
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#ffffff', marginTop: '0.2rem' }}>
                 {lockout.lock_reason}
               </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 text-xs">
-            <span className="bg-rose-500/20 text-rose-300 px-3 py-1.5 rounded-xl border border-rose-500/30 font-bold">
+          <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem' }}>
+            <span style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', color: '#fda4af', padding: '0.35rem 0.75rem', borderRadius: '8px', fontWeight: 800 }}>
               {lockout.high_impact_events_today} Eventos Rojos Hoy
             </span>
-            <span className="bg-[#1F2937] text-gray-300 px-3 py-1.5 rounded-xl border border-gray-700 font-semibold">
+            <span style={{ background: 'rgba(255,255,255,0.08)', padding: '0.35rem 0.75rem', borderRadius: '8px', color: '#cbd5e1', fontWeight: 600 }}>
               {lockout.total_events} Eventos Semanales
             </span>
           </div>
-        </div>
+        </section>
       )}
 
       {/* 4. Live Economic Calendar */}
-      <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-2xl space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <section className="quant-panel">
+        <div className="quant-panel-header">
           <div>
-            <h3 className="text-base font-bold text-gray-200 flex items-center gap-2">
+            <h3 className="quant-panel-title">
               <span>📅</span> Calendario Económico Real (Semana en Curso)
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Noticias macroeconómicas de alto y medio impacto que mueven el precio de los futuros
-            </p>
+            <div className="quant-panel-subtitle">
+              Noticias macroeconómicas de alto y medio impacto que mueven el precio de los futuros de índices y materias primas.
+            </div>
           </div>
 
           {/* Filter Pills */}
-          <div className="flex bg-[#1F2937] p-1 rounded-xl border border-gray-700 text-xs">
-            <button
-              onClick={() => setFilterImpact('ALL')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${filterImpact === 'ALL' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setFilterImpact('HIGH')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 ${filterImpact === 'HIGH' ? 'bg-rose-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
-            >
-              <span className="w-2 h-2 rounded-full bg-rose-400"></span>
-              Alto Impacto
-            </button>
-            <button
-              onClick={() => setFilterImpact('MEDIUM')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 ${filterImpact === 'MEDIUM' ? 'bg-amber-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
-            >
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-              Medio Impacto
-            </button>
+          <div className="quant-pill-bar">
+            {[
+              { id: 'ALL', label: 'Todos' },
+              { id: 'HIGH', label: '🔴 Alto Impacto' },
+              { id: 'MEDIUM', label: '🟡 Medio Impacto' },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilterImpact(f.id as any)}
+                className={`quant-pill-btn ${filterImpact === f.id ? 'active' : ''}`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Events List */}
-        <div className="space-y-2.5">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {filteredEvents.map((evt) => {
             const isHigh = evt.impact === 'HIGH';
-
             return (
               <div
                 key={evt.id}
-                className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                  isHigh ? 'bg-rose-950/20 border-rose-500/30 hover:border-rose-500/50' : 'bg-[#1F2937]/30 border-gray-800'
-                }`}
+                style={{
+                  background: isHigh ? 'rgba(244,63,94,0.08)' : 'rgba(15,23,42,0.5)',
+                  border: isHigh ? '1px solid rgba(244,63,94,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '14px',
+                  padding: '1rem 1.25rem',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                }}
               >
-                <div className="space-y-1 md:w-96">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded font-bold bg-gray-800 text-white border border-gray-700">
+                <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 800, background: 'rgba(255,255,255,0.1)', padding: '0.15rem 0.5rem', borderRadius: '6px' }}>
                       {evt.country}
                     </span>
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
-                      isHigh ? 'bg-rose-500 text-white' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    }`}>
-                      {evt.impact === 'HIGH' ? '🔴 ALTO IMPACTO' : '🟡 MEDIO IMPACTO'}
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '6px',
+                      background: isHigh ? '#e11d48' : 'rgba(245,158,11,0.2)',
+                      color: isHigh ? '#ffffff' : '#fbbf24',
+                    }}>
+                      {isHigh ? '🔴 ALTO IMPACTO' : '🟡 MEDIO IMPACTO'}
                     </span>
-                    <span className="text-xs text-gray-400 font-mono">{evt.time || '08:30 ET'}</span>
+                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.75rem', color: '#94a3b8' }}>
+                      {evt.time || '08:30 ET'}
+                    </span>
                   </div>
-                  <div className="font-bold text-sm text-gray-100">{evt.name}</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc' }}>
+                    {evt.name}
+                  </div>
                   {evt.guidance && (
-                    <p className="text-[11px] text-gray-400 italic">
+                    <div style={{ fontSize: '0.72rem', color: '#cbd5e1', fontStyle: 'italic' }}>
                       💡 {evt.guidance}
-                    </p>
+                    </div>
                   )}
                 </div>
 
-                {/* Macro metrics: Previo, Previsión, Real */}
-                <div className="flex items-center gap-4 text-xs">
-                  <div className="bg-[#1F2937]/60 px-3 py-1.5 rounded-lg border border-gray-800">
-                    <span className="text-gray-400 block text-[10px]">Previo</span>
-                    <strong className="text-gray-200">{evt.previous}</strong>
+                {/* Previo / Previsión / Real */}
+                <div style={{ display: 'flex', gap: '0.65rem' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.75rem', borderRadius: '8px', textAlign: 'center', minWidth: '70px' }}>
+                    <span style={{ fontSize: '0.62rem', color: '#94a3b8', display: 'block' }}>Previo</span>
+                    <strong style={{ fontSize: '0.8rem', color: '#e2e8f0' }}>{evt.previous}</strong>
                   </div>
-                  <div className="bg-[#1F2937]/60 px-3 py-1.5 rounded-lg border border-gray-800">
-                    <span className="text-gray-400 block text-[10px]">Previsión</span>
-                    <strong className="text-amber-300">{evt.forecast}</strong>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.75rem', borderRadius: '8px', textAlign: 'center', minWidth: '70px' }}>
+                    <span style={{ fontSize: '0.62rem', color: '#94a3b8', display: 'block' }}>Previsión</span>
+                    <strong style={{ fontSize: '0.8rem', color: '#fbbf24' }}>{evt.forecast}</strong>
                   </div>
-                  <div className="bg-[#1F2937]/60 px-3 py-1.5 rounded-lg border border-gray-800">
-                    <span className="text-gray-400 block text-[10px]">Actual</span>
-                    <strong className="text-emerald-400">{evt.actual}</strong>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.45rem 0.75rem', borderRadius: '8px', textAlign: 'center', minWidth: '70px' }}>
+                    <span style={{ fontSize: '0.62rem', color: '#94a3b8', display: 'block' }}>Actual</span>
+                    <strong style={{ fontSize: '0.8rem', color: '#34d399' }}>{evt.actual}</strong>
                   </div>
                 </div>
 
                 {/* Affected Assets */}
-                <div className="flex flex-wrap gap-1.5 md:w-48 justify-start md:justify-end">
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                   {evt.affected_assets?.map((sym) => (
-                    <span key={sym} className="text-[10px] bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 font-bold px-2 py-0.5 rounded">
+                    <span key={sym} style={{ fontSize: '0.68rem', fontWeight: 800, background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#c7d2fe', padding: '0.15rem 0.5rem', borderRadius: '6px' }}>
                       #{sym}
                     </span>
                   ))}
@@ -324,7 +331,7 @@ export const MacroSentinelView: React.FC = () => {
             );
           })}
         </div>
-      </div>
+      </section>
     </div>
   );
 };

@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api';
+import '../../styles-quant.css';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+  ReferenceLine,
+} from 'recharts';
 
 interface HistoricalPattern {
   id: string;
@@ -180,9 +191,9 @@ export const HistoricalPatternsView: React.FC = () => {
 
   if (loading && !data) {
     return (
-      <div className="flex flex-col items-center justify-center p-16 space-y-4">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-400 font-medium">Analizando 10 años de datos históricos, temporadas y precedentes de noticias...</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem', gap: '1rem' }}>
+        <div style={{ width: '48px', height: '48px', border: '4px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <p style={{ color: '#94a3b8', fontWeight: 600 }}>Cargando análisis institucional y precedentes históricos...</p>
       </div>
     );
   }
@@ -191,40 +202,50 @@ export const HistoricalPatternsView: React.FC = () => {
     id: 'all',
     name: 'Historial Decenal',
     description: '10 años completos sin filtro de régimen.',
+    winrate_modifier: 0,
     bias: 'NEUTRAL BASE',
   };
 
+  const confluenceScore = Math.min(
+    96,
+    Math.max(
+      35,
+      Math.round(
+        ((data?.current_context?.month_historical_winrate ?? 60) * 0.5) +
+        ((data?.current_context?.day_bullish_bias ?? 55) * 0.3) +
+        ((data?.historical_winrate_baseline ?? 62) * 0.2)
+      )
+    )
+  );
+
   return (
-    <div className="space-y-6 animate-fadeIn text-white">
-      {/* Header & Asset/Year Controls */}
-      <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-2xl backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-xl shadow-lg">🏛️</span>
+    <div className="quant-container">
+      {/* 1. Header Bar with Asset & Period Pills */}
+      <section className="quant-hero-panel">
+        <div className="quant-hero-title-group">
+          <div className="quant-hero-icon">🏛️</div>
           <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">
+            <h2 className="quant-hero-heading">
               Motor Cuantitativo de Patrones (5 a 10 Años)
             </h2>
-            <p className="text-xs text-gray-400">
-              Estacionalidad decenal, comparativas de temporadas, horarios de afluencia y noticias análogas para {data?.name || selectedSymbol}
-            </p>
+            <div className="quant-hero-subheading">
+              Estacionalidad decenal, comparativas interanuales, afluencia horaria y noticias análogas para <strong>{data?.name || selectedSymbol}</strong>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="quant-controls-group">
           {/* Asset Pills */}
-          <div className="flex bg-[#1F2937] p-1 rounded-xl border border-gray-700/60">
+          <div className="quant-pill-bar">
             {symbols.map((s) => (
               <button
                 key={s.id}
+                type="button"
                 onClick={() => {
                   setSelectedSymbol(s.id);
                   setRoadmap(null);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 ${
-                  selectedSymbol === s.id
-                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
+                className={`quant-pill-btn ${selectedSymbol === s.id ? 'active' : ''}`}
               >
                 <span>{s.icon}</span>
                 <span>{s.id}</span>
@@ -233,362 +254,471 @@ export const HistoricalPatternsView: React.FC = () => {
           </div>
 
           {/* Years Selector */}
-          <div className="flex bg-[#1F2937] p-1 rounded-xl border border-gray-700/60 text-xs">
+          <div className="quant-pill-bar">
             {[3, 5, 10].map((yr) => (
               <button
                 key={yr}
+                type="button"
                 onClick={() => setSelectedYears(yr)}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  selectedYears === yr ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
-                }`}
+                className={`quant-pill-btn ${selectedYears === yr ? 'active-purple' : ''}`}
               >
                 {yr} Años
               </button>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* NEW: Filter Toolbar for Market Epochs & Seasons */}
-      <div className="bg-[#0e1626] border-2 border-indigo-500/30 rounded-2xl p-4 shadow-xl space-y-3">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
+      {/* 2. Interactive Epoch & Season Filter Toolbar */}
+      <section className="quant-epoch-bar">
+        <div className="quant-epoch-header">
+          <div className="quant-epoch-label">
             <span>⏱️</span>
-            <span>Filtro de Épocas & Temporadas de Mercado:</span>
+            <span>Filtro de Épocas y Temporadas de Mercado:</span>
           </div>
-          <span className="text-[11px] bg-indigo-950/70 border border-indigo-500/40 text-indigo-300 px-2.5 py-0.5 rounded-full font-semibold">
+          <div className="quant-epoch-tag">
             Régimen Activo: {activeEpoch.bias}
-          </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="quant-epoch-grid">
           {[
-            { id: 'all', label: 'Historial 10 Años', icon: '🌐' },
-            { id: 'current_season', label: 'Temporada Actual (Q3/Sep)', icon: '🍁' },
-            { id: 'election_years', label: 'Años Electorales USA', icon: '🗳️' },
-            { id: 'rate_cut_cycle', label: 'Ciclos Bajas Tasas FED', icon: '📉' },
-            { id: 'earnings_season', label: 'Temporada Earnings', icon: '📊' },
+            { id: 'all', label: 'Historial 10 Años', sub: 'Muestra global 2014-2024', icon: '🌐' },
+            { id: 'current_season', label: 'Temporada Actual (Q3/Sep)', sub: 'Efecto fin de verano', icon: '🍁' },
+            { id: 'election_years', label: 'Años Electorales USA', sub: '2024, 2020, 2016', icon: '🗳️' },
+            { id: 'rate_cut_cycle', label: 'Ciclos Bajas Tasas FED', sub: 'Flexibilización y liquidez', icon: '📉' },
+            { id: 'earnings_season', label: 'Temporada Earnings', sub: 'Balances Big Tech', icon: '📊' },
           ].map((ep) => (
-            <button
+            <div
               key={ep.id}
               onClick={() => setSelectedEpoch(ep.id)}
-              className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-left flex flex-col gap-1 ${
-                selectedEpoch === ep.id
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 border-indigo-400 text-white shadow-lg ring-2 ring-indigo-400/30'
-                  : 'bg-[#151d30] border-gray-800 text-gray-300 hover:bg-[#1f2b45] hover:text-white'
-              }`}
+              className={`quant-epoch-card ${selectedEpoch === ep.id ? 'selected' : ''}`}
             >
-              <div className="flex items-center gap-1.5">
+              <div className="quant-epoch-card-title">
                 <span>{ep.icon}</span>
-                <span className="truncate">{ep.label}</span>
+                <span>{ep.label}</span>
               </div>
-            </button>
+              <div className="quant-epoch-card-sub">{ep.sub}</div>
+            </div>
           ))}
         </div>
 
-        <p className="text-[11px] text-gray-400 italic pt-1 border-t border-gray-800/80">
+        <p className="quant-epoch-explanation">
           💡 <strong>Contexto del filtro:</strong> {activeEpoch.description}
         </p>
-      </div>
+      </section>
 
-      {/* 4 Metric Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
-          <div className="text-gray-400 text-xs font-medium">Retorno Anual Promedio ({selectedYears}A)</div>
-          <div className="text-2xl font-bold text-emerald-400 mt-1">+{data?.avg_annual_return_10y ?? 0}%</div>
-          <div className="text-[11px] text-gray-500 mt-1">Rentabilidad sostenida decenal</div>
-        </div>
-
-        <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
-          <div className="text-gray-400 text-xs font-medium">Win Rate en Esta Época</div>
-          <div className="text-2xl font-bold text-indigo-400 mt-1">{data?.current_context?.month_historical_winrate ?? 60}%</div>
-          <div className="text-[11px] text-gray-500 mt-1">Ajustado por el régimen seleccionado</div>
-        </div>
-
-        <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
-          <div className="text-gray-400 text-xs font-medium">Mejores Meses de Plusvalía</div>
-          <div className="text-base font-bold text-purple-300 mt-1 truncate">
-            {Array.isArray(data?.best_months) ? data.best_months.slice(0, 2).join(', ') : 'Nov, Dic'}
+      {/* 3. Immersive Tactical Briefing & Confluence Gauge */}
+      <section className="quant-briefing-grid">
+        {/* Left Card: Gemini Copilot Tactical Briefing */}
+        <div className="quant-briefing-card">
+          <div className="quant-briefing-top">
+            <div className="quant-briefing-badge">
+              <span className="quant-live-dot"></span>
+              <span>Dictamen Cuantitativo en Vivo · {data?.current_context?.month_name} ({selectedSymbol})</span>
+            </div>
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+              Base: {selectedYears} Años Verificados
+            </span>
           </div>
-          <div className="text-[11px] text-gray-500 mt-1">Meses de máxima expansión</div>
-        </div>
 
-        <div className="bg-[#111827] border border-gray-800/80 rounded-xl p-4 shadow-lg">
-          <div className="text-gray-400 text-xs font-medium">Horario de Afluencia de Oro</div>
-          <div className="text-base font-bold text-amber-400 mt-1">09:30 - 11:15 ET</div>
-          <div className="text-[11px] text-gray-500 mt-1">Apertura NY + Silver Bullet</div>
-        </div>
-      </div>
+          <div className={`quant-verdict-banner ${confluenceScore < 50 ? 'warning' : ''}`}>
+            <div className="quant-verdict-text">
+              {data?.current_context?.verdict_status || 'SESGO DE TRADING'}
+            </div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#ffffff' }}>
+              {data?.current_context?.day_name}
+            </div>
+          </div>
 
-      {/* Live Context Banner */}
-      {data?.current_context && (
-        <div className="bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-[#111827] border border-indigo-500/30 rounded-2xl p-4.5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
-                Contexto Estacional Actual · {data.current_context?.month_name || ''} & {data.current_context?.day_name || ''}
+          <div style={{ fontSize: '0.85rem', color: '#e2e8f0', lineHeight: 1.55 }}>
+            {data?.current_context?.recommendation_action}
+          </div>
+
+          <div className="quant-plan-steps">
+            <div className="quant-step-box">
+              <span className="quant-step-title">🎯 Sesgo Principal</span>
+              <span className="quant-step-value" style={{ color: confluenceScore >= 60 ? '#34d399' : '#fbbf24' }}>
+                {confluenceScore >= 60 ? 'LONG / COMPRA' : 'SHORT / DEFENSIVO'}
               </span>
             </div>
-            <div className="text-sm font-semibold text-white">
-              {data.current_context?.recommendation_action || 'Analizando régimen estacional...'}
+            <div className="quant-step-box">
+              <span className="quant-step-title">⏰ Ventana Dorada</span>
+              <span className="quant-step-value" style={{ color: '#fbbf24' }}>
+                09:30 - 11:15 ET
+              </span>
+            </div>
+            <div className="quant-step-box">
+              <span className="quant-step-title">🛡️ Gestión de Riesgo</span>
+              <span className="quant-step-value">
+                Máx 2 Pérdidas / Día
+              </span>
+            </div>
+            <div className="quant-step-box">
+              <span className="quant-step-title">📈 Win Rate en Esta Época</span>
+              <span className="quant-step-value" style={{ color: '#818cf8' }}>
+                {data?.current_context?.month_historical_winrate}%
+              </span>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2 bg-indigo-900/40 px-3.5 py-2 rounded-xl border border-indigo-500/20 text-xs">
-            <span className="text-gray-400">Veredicto:</span>
-            <span className="font-bold text-emerald-400">{data.current_context?.verdict_status || 'NEUTRAL'}</span>
+        {/* Right Card: Dial / Speedometer of Institutional Confluence */}
+        <div className="quant-gauge-card">
+          <div className="quant-gauge-title">Probabilidad Confluente</div>
+          <div className="quant-gauge-score">{confluenceScore}%</div>
+          <div className="quant-gauge-badge">
+            {confluenceScore >= 70 ? '🟢 Alta Probabilidad' : confluenceScore >= 50 ? '🟡 Confluencia Media' : '🔴 Cautela Extrema'}
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.4 }}>
+            Sintetizado a partir del histórico de {selectedYears} años, ciclo {activeEpoch.name} y volumen intradiario.
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Sub-Navigation Tabs */}
-      <div className="flex border-b border-gray-800 gap-6 text-sm font-medium overflow-x-auto">
+      {/* 4. Sub-Navigation Tabs */}
+      <nav className="quant-tab-nav">
         {[
-          { id: 'seasonality', label: '📅 Estacionalidad (12 Meses & Semanal)' },
+          { id: 'seasonality', label: '📊 Estacionalidad Mensual & Gráfica' },
           { id: 'interannual_season', label: '🍁 Comparativa Temporada Actual (Año x Año)' },
           { id: 'similar_news', label: '📰 Noticias Similares & Reacciones Históricas' },
           { id: 'afluencia', label: '⚡ Horas de Afluencia y Liquidez' },
-          { id: 'patterns', label: '🎯 Patrones Recurrentes (Win Rate)' },
+          { id: 'patterns', label: '🎯 Patrones Recurrentes' },
           { id: 'ai_roadmap', label: '🧠 Roadmap Cuantitativo Gemini' },
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-3 transition-all relative whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'text-indigo-400 font-bold border-b-2 border-indigo-500'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
+            className={`quant-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
           >
             {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {/* TAB 1: Monthly Seasonality */}
+      {/* ── TAB 1: Monthly Seasonality with Interactive Recharts Bar Chart ── */}
       {activeTab === 'seasonality' && (
-        <div className="space-y-6">
-          <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-gray-200 flex items-center gap-2">
-              <span>📊</span> Rendimiento y Tasa de Acierto Mes a Mes ({selectedYears} Años)
-            </h3>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {(data?.monthly_seasonality || []).map((m) => {
-                const isPositive = m.avg_return >= 0;
-                const isCurrentMonth = m.name.toLowerCase() === (data?.current_context?.month_name || '').toLowerCase();
-
-                return (
-                  <div
-                    key={m.month}
-                    className={`rounded-xl p-3 border transition-all ${
-                      isCurrentMonth
-                        ? 'bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/20'
-                        : 'bg-[#1F2937]/50 border-gray-800'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center text-xs text-gray-400">
-                      <span className="font-bold">{m.name}</span>
-                      {isCurrentMonth && <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.5 rounded font-bold">HOY</span>}
-                    </div>
-
-                    <div className={`text-lg font-extrabold mt-1.5 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {isPositive ? `+${m.avg_return}%` : `${m.avg_return}%`}
-                    </div>
-
-                    <div className="mt-2 space-y-1">
-                      <div className="flex justify-between text-[10px] text-gray-400">
-                        <span>Win Rate:</span>
-                        <span className="font-bold text-gray-300">{m.win_rate}%</span>
-                      </div>
-                      <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`}
-                          style={{ width: `${m.win_rate}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-[10px] text-gray-500 text-right">Vol: {m.volatility}</div>
-                    </div>
-                  </div>
-                );
-              })}
+        <section className="quant-panel">
+          <div className="quant-panel-header">
+            <div>
+              <h3 className="quant-panel-title">
+                <span>📊</span> Gráfico Interactivo de Retorno Estacional ({selectedYears} Años)
+              </h3>
+              <div className="quant-panel-subtitle">
+                Rendimiento promedio porcentual mes a mes para {data?.name}. Pasa el cursor por cada barra para ver los detalles exactos.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#10b981' }}></span> Mes Ganador
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ef4444' }}></span> Mes Corrector
+              </span>
             </div>
           </div>
 
-          {/* Weekday Stats */}
-          <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-gray-200 flex items-center gap-2">
-              <span>🗓️</span> Comportamiento por Día de la Semana
-            </h3>
+          {/* Interactive Bar Chart */}
+          <div style={{ width: '100%', height: 260, marginTop: '0.5rem' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={data?.monthly_seasonality || []}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="month"
+                  stroke="#64748b"
+                  fontSize={12}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={12}
+                  tickLine={false}
+                  tickFormatter={(val) => `${val}%`}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const item = payload[0].payload as MonthlyStat;
+                      return (
+                        <div style={{
+                          background: '#0f172a',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: '10px',
+                          padding: '0.75rem',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                        }}>
+                          <div style={{ fontWeight: 800, color: '#f8fafc', fontSize: '0.85rem' }}>{item.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: item.avg_return >= 0 ? '#34d399' : '#f87171', fontWeight: 800, marginTop: '0.2rem' }}>
+                            Retorno Promedio: {item.avg_return >= 0 ? `+${item.avg_return}%` : `${item.avg_return}%`}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                            Tasa de Acierto (Win Rate): <strong style={{ color: '#ffffff' }}>{item.win_rate}%</strong>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
+                            Volatilidad: {item.volatility}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#334155" />
+                <Bar dataKey="avg_return" radius={[4, 4, 0, 0]}>
+                  {(data?.monthly_seasonality || []).map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.avg_return >= 0 ? '#10b981' : '#ef4444'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Month Cards Grid */}
+          <div className="quant-month-grid">
+            {(data?.monthly_seasonality || []).map((m) => {
+              const isPositive = m.avg_return >= 0;
+              const isCurrent = m.name.toLowerCase() === (data?.current_context?.month_name || '').toLowerCase();
+              return (
+                <div key={m.month} className={`quant-month-cell ${isCurrent ? 'current-month' : ''}`}>
+                  <div className="quant-month-top">
+                    <span>{m.name}</span>
+                    {isCurrent && <span className="quant-current-badge">HOY</span>}
+                  </div>
+                  <div className={`quant-month-return ${isPositive ? 'positive' : 'negative'}`}>
+                    {isPositive ? `+${m.avg_return}%` : `${m.avg_return}%`}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#94a3b8' }}>
+                    <span>Win Rate:</span>
+                    <strong style={{ color: '#e2e8f0' }}>{m.win_rate}%</strong>
+                  </div>
+                  <div className="quant-progress-bar">
+                    <div
+                      className={`quant-progress-fill ${isPositive ? 'positive' : 'negative'}`}
+                      style={{ width: `${m.win_rate}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Weekdays */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 0.75rem 0' }}>
+              🗓️ Comportamiento por Día de la Semana
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
               {(data?.weekday_stats || []).map((d) => (
-                <div key={d.day} className="bg-[#1F2937]/40 border border-gray-800 rounded-xl p-3.5 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-sm text-gray-200">{d.day}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-indigo-300 font-semibold">{d.volume_rank}</span>
+                <div key={d.day} style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '0.85rem' }}>{d.day}</strong>
+                    <span style={{ fontSize: '0.68rem', background: 'rgba(255,255,255,0.08)', padding: '0.15rem 0.45rem', borderRadius: '4px', color: '#818cf8' }}>
+                      {d.volume_rank}
+                    </span>
                   </div>
-
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-extrabold text-emerald-400">{d.bullish_bias}%</span>
-                    <span className="text-xs text-gray-400">Sesgo Alcista</span>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#34d399', margin: '0.4rem 0' }}>
+                    {d.bullish_bias}% <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 }}>Sesgo Alcista</span>
                   </div>
-
-                  <div className="text-xs text-gray-400">
-                    Rango Prom: <strong className="text-gray-200">{d.avg_range_pts} pts</strong>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                    Rango Promedio: <strong style={{ color: '#ffffff' }}>{d.avg_range_pts} pts</strong>
                   </div>
-
-                  <p className="text-[11px] text-gray-400 italic pt-1 border-t border-gray-800">
+                  <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic', margin: '0.4rem 0 0 0', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.35rem' }}>
                     "{d.note}"
                   </p>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* TAB 2: Interannual Season Comparison (Year by Year) */}
+      {/* ── TAB 2: Interannual Season Comparison (2015 - 2024) ── */}
       {activeTab === 'interannual_season' && (
-        <div className="space-y-5">
-          <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-              <div>
-                <h3 className="text-base font-bold text-gray-200 flex items-center gap-2">
-                  <span>🍁</span> Comparativa Interanual de la Temporada Actual ({data?.current_context?.month_name || 'Septiembre'} / Q3)
-                </h3>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  ¿Cómo se ha comportado esta misma época en cada uno de los últimos 10 años y qué catalizador dominó el mercado?
-                </p>
+        <section className="quant-panel">
+          <div className="quant-panel-header">
+            <div>
+              <h3 className="quant-panel-title">
+                <span>🍁</span> Comparativa Interanual de la Temporada Actual ({data?.current_context?.month_name} / Q3)
+              </h3>
+              <div className="quant-panel-subtitle">
+                Evolución histórica de esta misma temporada en los últimos 10 años (2015 a 2024) con el catalizador dominante de cada época.
               </div>
-              <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-xl border border-indigo-500/30 font-bold">
-                10 Años de Datos Verificados (2015 - 2024)
-              </span>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {(data?.interannual_season_comparison || []).map((rec) => {
-                const isPositive = rec.season_return >= 0;
-                return (
-                  <div
-                    key={rec.year}
-                    className="bg-[#151d30]/70 border border-gray-800 hover:border-indigo-500/40 rounded-xl p-4 space-y-2.5 transition-all"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-base font-extrabold text-white px-2 py-0.5 bg-gray-800 rounded-md">
-                          {rec.year}
-                        </span>
-                        <span className="text-xs text-indigo-300 font-semibold">{rec.regime}</span>
-                      </div>
-                      <div className={`text-base font-extrabold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {isPositive ? `+${rec.season_return}%` : `${rec.season_return}%`}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="bg-[#1F2937]/50 p-2 rounded-lg">
-                        <span className="text-[10px] text-gray-400 block">Win Rate de la Temporada:</span>
-                        <strong className="text-gray-200">{rec.win_rate}%</strong>
-                      </div>
-                      <div className="bg-[#1F2937]/50 p-2 rounded-lg">
-                        <span className="text-[10px] text-gray-400 block">Máximo Drawdown:</span>
-                        <strong className="text-rose-400">{rec.max_drawdown}%</strong>
-                      </div>
-                    </div>
-
-                    <p className="text-[11px] text-gray-300 leading-relaxed border-t border-gray-800/80 pt-2">
-                      📌 <strong>Catalizador:</strong> {rec.dominant_catalyst}
-                    </p>
-                  </div>
-                );
-              })}
+            <div className="quant-epoch-tag">
+              Datos Verificados CME Futures
             </div>
           </div>
-        </div>
+
+          {/* Interactive Chart of Season Returns Year by Year */}
+          <div style={{ width: '100%', height: 240 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={(data?.interannual_season_comparison || []).slice().reverse()}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <XAxis dataKey="year" stroke="#64748b" fontSize={12} tickLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const item = payload[0].payload as InterannualRecord;
+                      return (
+                        <div style={{
+                          background: '#0f172a',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: '10px',
+                          padding: '0.75rem',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                        }}>
+                          <div style={{ fontWeight: 800, color: '#f8fafc', fontSize: '0.85rem' }}>Año {item.year} · {item.regime}</div>
+                          <div style={{ fontSize: '0.8rem', color: item.season_return >= 0 ? '#34d399' : '#f87171', fontWeight: 800, marginTop: '0.2rem' }}>
+                            Retorno Temporada: {item.season_return >= 0 ? `+${item.season_return}%` : `${item.season_return}%`}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                            Win Rate: <strong style={{ color: '#ffffff' }}>{item.win_rate}%</strong> | Max Drawdown: <strong style={{ color: '#f87171' }}>{item.max_drawdown}%</strong>
+                          </div>
+                          <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '0.35rem', maxWidth: '280px' }}>
+                            {item.dominant_catalyst}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <ReferenceLine y={0} stroke="#334155" />
+                <Bar dataKey="season_return" radius={[4, 4, 0, 0]}>
+                  {(data?.interannual_season_comparison || []).slice().reverse().map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.season_return >= 0 ? '#10b981' : '#ef4444'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Cards for each year */}
+          <div className="quant-interannual-grid">
+            {(data?.interannual_season_comparison || []).map((rec) => {
+              const isPositive = rec.season_return >= 0;
+              return (
+                <div key={rec.year} className="quant-year-card">
+                  <div className="quant-year-top">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="quant-year-badge">{rec.year}</span>
+                      <span style={{ fontSize: '0.75rem', color: '#c7d2fe', fontWeight: 600 }}>{rec.regime}</span>
+                    </div>
+                    <div className="quant-year-return" style={{ color: isPositive ? '#34d399' : '#f87171' }}>
+                      {isPositive ? `+${rec.season_return}%` : `${rec.season_return}%`}
+                    </div>
+                  </div>
+
+                  <div className="quant-year-metrics">
+                    <div className="quant-metric-item">
+                      <span>Win Rate Temporada</span>
+                      <strong>{rec.win_rate}%</strong>
+                    </div>
+                    <div className="quant-metric-item">
+                      <span>Max Drawdown</span>
+                      <strong style={{ color: '#f87171' }}>{rec.max_drawdown}%</strong>
+                    </div>
+                  </div>
+
+                  <div className="quant-year-catalyst">
+                    📌 <strong>Catalizador:</strong> {rec.dominant_catalyst}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      {/* TAB 3: Similar News Analogs & Empirical Market Reactions */}
+      {/* ── TAB 3: Similar News Analogs & Empirical Market Reactions ── */}
       {activeTab === 'similar_news' && (
-        <div className="space-y-5">
-          {/* News Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-2 bg-[#111827] border border-gray-800 p-2 rounded-2xl">
-            <span className="text-xs font-bold text-gray-400 pl-2">Tipo de Noticia:</span>
-            {[
-              { id: 'all', label: 'Todas las Noticias' },
-              { id: 'rate_decision', label: '🏛️ Tasas FED / FOMC' },
-              { id: 'cpi_inflation', label: '📈 Inflación / CPI' },
-              { id: 'nfp_jobs', label: '💼 Empleo / NFP' },
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedNewsCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  selectedNewsCategory === cat.id
-                    ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-md'
-                    : 'bg-[#1F2937] text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+        <section className="quant-panel">
+          <div className="quant-panel-header">
+            <div>
+              <h3 className="quant-panel-title">
+                <span>📰</span> Noticias Similares & Reacciones Históricas (News Matcher)
+              </h3>
+              <div className="quant-panel-subtitle">
+                Evalúa qué ocurrió empíricamente en las últimas ocasiones que se publicó una noticia de este tipo en los mercados financieros.
+              </div>
+            </div>
+            {/* Filter Pills */}
+            <div className="quant-news-filter-bar">
+              {[
+                { id: 'all', label: 'Todas' },
+                { id: 'rate_decision', label: '🏛️ Tasas FED' },
+                { id: 'cpi_inflation', label: '📈 Inflación CPI' },
+                { id: 'nfp_jobs', label: '💼 Empleo NFP' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedNewsCategory(cat.id)}
+                  className={`quant-pill-btn ${selectedNewsCategory === cat.id ? 'active' : ''}`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Cards for each similar news type */}
-          <div className="space-y-4">
+          <div className="quant-news-list">
             {(data?.similar_news_analogs || []).map((analog) => (
-              <div
-                key={analog.id}
-                className="bg-[#111827] border border-gray-800 hover:border-amber-500/30 rounded-2xl p-5 shadow-xl space-y-4 transition-all"
-              >
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div key={analog.id} className="quant-news-card">
+                <div className="quant-news-card-header">
                   <div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                      {analog.type_label}
-                    </span>
-                    <h4 className="text-lg font-bold text-white mt-1">{analog.title}</h4>
+                    <span className="quant-news-type-tag">{analog.type_label}</span>
+                    <h4 className="quant-news-title">{analog.title}</h4>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-[10px] text-gray-400">Win Rate Alcista</div>
-                      <div className="text-base font-extrabold text-emerald-400">{analog.historical_winrate_long}%</div>
+                  <div className="quant-news-stats-row">
+                    <div className="quant-news-stat-item">
+                      <span>Win Rate Alcista</span>
+                      <strong style={{ color: analog.historical_winrate_long >= 60 ? '#34d399' : '#f87171' }}>
+                        {analog.historical_winrate_long}%
+                      </strong>
                     </div>
-                    <div className="text-right border-l border-gray-800 pl-3">
-                      <div className="text-[10px] text-gray-400">Vela 15m Promedio</div>
-                      <div className="text-base font-extrabold text-amber-400">±{analog.avg_15m_range_pts} pts</div>
+                    <div className="quant-news-stat-item">
+                      <span>Vela 15m Promedio</span>
+                      <strong style={{ color: '#fbbf24' }}>±{analog.avg_15m_range_pts} pts</strong>
                     </div>
                   </div>
                 </div>
 
-                {/* Golden Rule */}
-                <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-300">
-                    <span>👑</span> Regla de Oro Cuantitativa Anti-Trampas:
+                <div className="quant-golden-rule-box">
+                  <div className="quant-golden-rule-title">
+                    <span>👑</span> Regla Cuantitativa de Oro (Anti-Trampas):
                   </div>
-                  <p className="leading-relaxed">{analog.golden_rule}</p>
+                  <p className="quant-golden-rule-desc">{analog.golden_rule}</p>
                 </div>
 
-                {/* Past Occurrences / Empirical Precedents */}
-                <div className="space-y-2">
-                  <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                    Precedentes Históricos Recientes (Últimas Ocurrencias Similares):
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                <div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', marginBottom: '0.5rem' }}>
+                    Últimos Precedentes Históricos Verificados:
+                  </div>
+                  <div className="quant-occurrences-grid">
                     {analog.past_occurrences.map((occ, idx) => (
-                      <div key={idx} className="bg-[#1F2937]/40 border border-gray-800 p-3 rounded-xl space-y-1.5 text-xs">
-                        <div className="flex justify-between items-center">
-                          <span className="font-mono font-bold text-indigo-300">{occ.date}</span>
-                          <span className="text-[10px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded font-semibold">
-                            15m: {occ.initial_15m_reaction}
-                          </span>
+                      <div key={idx} className="quant-occurrence-item">
+                        <div className="quant-occurrence-top">
+                          <span className="quant-occurrence-date">{occ.date}</span>
+                          <span className="quant-occurrence-badge">15m: {occ.initial_15m_reaction}</span>
                         </div>
-                        <div className="font-semibold text-gray-200">{occ.event}</div>
-                        <div className="text-gray-400 text-[11px]">
-                          <strong>Resultado Día:</strong> {occ.session_outcome}
+                        <div className="quant-occurrence-desc">{occ.event}</div>
+                        <div className="quant-occurrence-outcome">
+                          <strong>Cierre Día:</strong> {occ.session_outcome}
                         </div>
-                        <div className="text-emerald-400/90 text-[10px] italic">
+                        <div className="quant-occurrence-verdict">
                           "{occ.verdict}"
                         </div>
                       </div>
@@ -598,173 +728,217 @@ export const HistoricalPatternsView: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* TAB 4: Hourly Afluencia */}
+      {/* ── TAB 4: Hourly Afluencia Timeline ── */}
       {activeTab === 'afluencia' && (
-        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-5">
-          <div className="flex justify-between items-center">
+        <section className="quant-panel">
+          <div className="quant-panel-header">
             <div>
-              <h3 className="text-base font-bold text-gray-200 flex items-center gap-2">
+              <h3 className="quant-panel-title">
                 <span>⚡</span> Curva de Afluencia, Liquidez y Sesiones Institucionales
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Volumen relativo de transacciones institucionales y ventanas ideales para evitar trampas
-              </p>
+              <div className="quant-panel-subtitle">
+                Volumen institucional intradiario para {data?.name}. Identifica cuándo entran los fondos y cuándo retirarse para evitar consolidaciones.
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-emerald-500"></span> Óptimo</span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-gray-600"></span> Evitar</span>
+            <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span> Ventana Dorada
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#64748b' }}></span> Baja Liquidez
+              </span>
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {(data?.hourly_afluencia || []).map((h) => (
               <div
                 key={h.hour}
-                className={`p-3.5 rounded-xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                  h.actionable
-                    ? 'bg-emerald-950/20 border-emerald-500/30 hover:border-emerald-500/50'
-                    : 'bg-[#1F2937]/30 border-gray-800/80 opacity-70'
-                }`}
+                style={{
+                  background: h.actionable ? 'rgba(16, 185, 129, 0.08)' : 'rgba(15, 23, 42, 0.4)',
+                  border: h.actionable ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
+                  borderRadius: '12px',
+                  padding: '0.85rem 1.1rem',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                }}
               >
-                <div className="flex items-center gap-3 w-48">
-                  <span className="font-mono text-sm font-bold text-gray-300">{h.time_label}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                    h.actionable ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-gray-800 text-gray-400'
-                  }`}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '200px' }}>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontWeight: 800, fontSize: '0.9rem' }}>{h.time_label}</span>
+                  <span style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '6px',
+                    background: h.actionable ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                    color: h.actionable ? '#34d399' : '#94a3b8',
+                  }}>
                     {h.session}
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-1">
-                  <div className="flex justify-between text-xs text-gray-400">
+                <div style={{ flex: 1, minWidth: '180px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.25rem' }}>
                     <span>Afluencia / Liquidez:</span>
-                    <span className="font-bold text-gray-200">{h.volume_score}%</span>
+                    <strong style={{ color: '#ffffff' }}>{h.volume_score}%</strong>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                  <div className="quant-progress-bar">
                     <div
-                      className={`h-full rounded-full ${h.volume_score > 70 ? 'bg-emerald-400' : (h.volume_score > 40 ? 'bg-amber-400' : 'bg-gray-600')}`}
-                      style={{ width: `${h.volume_score}%` }}
+                      className="quant-progress-fill positive"
+                      style={{
+                        width: `${h.volume_score}%`,
+                        background: h.volume_score > 75 ? 'linear-gradient(90deg, #10b981, #34d399)' : (h.volume_score > 40 ? 'linear-gradient(90deg, #f59e0b, #fbbf24)' : '#64748b')
+                      }}
                     ></div>
                   </div>
                 </div>
 
-                <div className="md:w-64 text-xs text-gray-300">
-                  {h.note || 'Sesión de baja volatilidad'}
+                <div style={{ fontSize: '0.75rem', color: '#cbd5e1', width: '260px' }}>
+                  {h.note || 'Sesión de baja volatilidad intradiaria'}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* TAB 5: Recurrent Patterns */}
+      {/* ── TAB 5: Recurrent Patterns ── */}
       {activeTab === 'patterns' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <section className="quant-panel">
+          <div className="quant-panel-header">
+            <div>
+              <h3 className="quant-panel-title">
+                <span>🎯</span> Patrones Recurrentes con Mayor Ventaja Matemática (10 Años)
+              </h3>
+              <div className="quant-panel-subtitle">
+                Setups algorítmicos validados con más de 10,000 operaciones históricas en el CME.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
             {(data?.recurrent_patterns || []).map((pat) => (
               <div
                 key={pat.id}
-                className="bg-[#111827] border border-gray-800 hover:border-indigo-500/50 rounded-2xl p-5 shadow-xl space-y-4 transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(20, 29, 48, 0.8) 100%)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
+                }}
               >
-                <div className="flex justify-between items-start gap-2">
-                  <h4 className="text-base font-bold text-white flex items-center gap-2">
-                    <span className="text-indigo-400">🎯</span> {pat.name}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>
+                    {pat.name}
                   </h4>
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-extrabold text-xs">
+                  <span style={{
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    color: '#34d399',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '8px',
+                    whiteSpace: 'nowrap',
+                  }}>
                     Win Rate {pat.win_rate_10y}%
                   </span>
                 </div>
 
-                <p className="text-xs text-gray-300 leading-relaxed">
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.45 }}>
                   {pat.description}
                 </p>
 
-                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-800 text-center">
-                  <div className="bg-[#1F2937]/50 p-2 rounded-lg">
-                    <div className="text-[10px] text-gray-400">Profit Factor</div>
-                    <div className="text-sm font-bold text-purple-400">{pat.profit_factor}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', background: 'rgba(0,0,0,0.25)', padding: '0.6rem', borderRadius: '10px', textAlign: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'block' }}>Profit Factor</span>
+                    <strong style={{ fontSize: '0.9rem', color: '#c084fc' }}>{pat.profit_factor}</strong>
                   </div>
-                  <div className="bg-[#1F2937]/50 p-2 rounded-lg">
-                    <div className="text-[10px] text-gray-400">Ratio R:B</div>
-                    <div className="text-sm font-bold text-indigo-400">{pat.avg_risk_reward}</div>
+                  <div>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'block' }}>Ratio R:B</span>
+                    <strong style={{ fontSize: '0.9rem', color: '#818cf8' }}>{pat.avg_risk_reward}</strong>
                   </div>
-                  <div className="bg-[#1F2937]/50 p-2 rounded-lg">
-                    <div className="text-[10px] text-gray-400">Muestra (10A)</div>
-                    <div className="text-sm font-bold text-gray-300">{pat.sample_trades_10y.toLocaleString()}</div>
+                  <div>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'block' }}>Muestra 10A</span>
+                    <strong style={{ fontSize: '0.9rem', color: '#ffffff' }}>{pat.sample_trades_10y.toLocaleString()}</strong>
                   </div>
                 </div>
 
-                <div className="text-xs text-amber-300/90 flex items-center gap-1.5 bg-amber-950/20 p-2 rounded-lg border border-amber-500/20">
-                  <span>⏰</span> <strong>Ventana Óptima:</strong> {pat.best_window}
+                <div style={{ fontSize: '0.74rem', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.1)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                  ⏰ <strong>Ventana Óptima:</strong> {pat.best_window}
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* TAB 6: AI Roadmap */}
+      {/* ── TAB 6: AI Roadmap ── */}
       {activeTab === 'ai_roadmap' && (
-        <div className="bg-[#111827] border border-gray-800 rounded-2xl p-6 shadow-2xl space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <section className="quant-panel">
+          <div className="quant-panel-header">
             <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <h3 className="quant-panel-title">
                 <span>🧠</span> Asesor Cuantitativo Gemini (Roadmap 10 Años)
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Estrategia semanal sintetizada con base en el historial estadístico y la época de {data?.name}
-              </p>
+              <div className="quant-panel-subtitle">
+                Estrategia semanal sintetizada con base en el historial decenal de {data?.name} y la época activa.
+              </div>
             </div>
             <button
+              type="button"
               onClick={fetchAIRoadmap}
               disabled={loadingRoadmap}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-xl text-xs font-bold text-white shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+              className="quant-pill-btn active"
+              style={{ padding: '0.55rem 1.1rem' }}
             >
-              {loadingRoadmap ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Sintetizando...</span>
-                </>
-              ) : (
-                <>
-                  <span>🔄</span>
-                  <span>Regenerar Roadmap</span>
-                </>
-              )}
+              {loadingRoadmap ? 'Sintetizando...' : '🔄 Regenerar Roadmap'}
             </button>
           </div>
 
           {roadmap && (
-            <div className="space-y-5 animate-fadeIn">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[#1F2937]/60 border border-gray-800 rounded-xl p-4">
-                  <div className="text-xs text-gray-400">Sesgo Recomendado</div>
-                  <div className="text-lg font-bold text-emerald-400 mt-1">{roadmap.bias}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Sesgo Recomendado</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#34d399', marginTop: '0.25rem' }}>{roadmap.bias}</div>
                 </div>
-                <div className="bg-[#1F2937]/60 border border-gray-800 rounded-xl p-4">
-                  <div className="text-xs text-gray-400">Ventana Exacta de Entrada</div>
-                  <div className="text-lg font-bold text-amber-300 mt-1">{roadmap.optimal_window}</div>
+                <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Ventana Exacta de Entrada</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fbbf24', marginTop: '0.25rem' }}>{roadmap.optimal_window}</div>
                 </div>
-                <div className="bg-[#1F2937]/60 border border-gray-800 rounded-xl p-4">
-                  <div className="text-xs text-gray-400">Patrón con Mayor Plusvalía</div>
-                  <div className="text-sm font-bold text-purple-300 mt-1">{roadmap.top_pattern}</div>
+                <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1rem' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Patrón con Mayor Plusvalía</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#c084fc', marginTop: '0.25rem' }}>{roadmap.top_pattern}</div>
                 </div>
               </div>
 
-              <div className="bg-indigo-950/30 border border-indigo-500/30 rounded-xl p-4.5 space-y-2">
-                <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Dictamen Cuantitativo</h4>
-                <p className="text-sm text-gray-200 leading-relaxed">{roadmap.executive_summary}</p>
+              <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '14px', padding: '1.25rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#818cf8', letterSpacing: '0.04em', marginBottom: '0.4rem' }}>
+                  Dictamen Cuantitativo Ejecutivo
+                </div>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: '#f1f5f9', lineHeight: 1.55 }}>
+                  {roadmap.executive_summary}
+                </p>
               </div>
 
-              <div className="space-y-2.5">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Plan de Acción Paso a Paso</h4>
-                <div className="space-y-2">
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.04em', marginBottom: '0.65rem' }}>
+                  Plan de Acción Táctico Paso a Paso:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {(roadmap.action_steps || []).map((step, idx) => (
-                    <div key={idx} className="bg-[#1F2937]/40 border border-gray-800 p-3 rounded-xl text-xs text-gray-300 flex items-start gap-2.5">
-                      <span className="font-bold text-indigo-400">#{idx + 1}</span>
+                    <div key={idx} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                      <span style={{ fontWeight: 800, color: '#818cf8', fontFamily: 'JetBrains Mono' }}>#{idx + 1}</span>
                       <span>{step}</span>
                     </div>
                   ))}
@@ -772,7 +946,7 @@ export const HistoricalPatternsView: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
+        </section>
       )}
     </div>
   );

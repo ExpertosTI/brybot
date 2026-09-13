@@ -18,6 +18,7 @@ import { HistoricalPatternsView } from '../components/trading/HistoricalPatterns
 import { MacroSentinelView } from '../components/trading/MacroSentinelView';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { soundEffects } from '../utils/audioEffects';
+import '../styles-quant.css';
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -259,30 +260,48 @@ export function Dashboard() {
       />
 
       {/* Primary Workspace View Switcher (Desktop & Mobile) - Ultra Visible */}
-      <div className="px-4 pt-4 pb-2 max-w-[1920px] mx-auto">
-        <div className="bg-[#0c1222] p-2 rounded-2xl border-2 border-indigo-500/30 shadow-2xl shadow-indigo-950/40 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 pl-2">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs uppercase tracking-wider font-extrabold text-indigo-300">
-              Módulos Institucionales:
+      <div style={{ padding: '0.85rem 1rem 0.35rem 1rem', maxWidth: '1920px', margin: '0 auto' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #0c1222 0%, #111827 100%)',
+          padding: '0.75rem 1.25rem',
+          borderRadius: '16px',
+          border: '2px solid rgba(99, 102, 241, 0.35)',
+          boxShadow: '0 16px 36px rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.75rem',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 12px #22c55e' }}></span>
+            <span style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800, color: '#a5b4fc' }}>
+              Módulos Cuantitativos e Institucionales:
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.6rem' }}>
             {/* Tab 1: Trading Cockpit */}
             <button
               type="button"
               onClick={() => setViewMode('cockpit')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 border ${
-                viewMode === 'cockpit'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-400 shadow-lg shadow-indigo-500/25 ring-2 ring-indigo-400/40'
-                  : 'bg-[#151c2e] text-gray-300 hover:text-white hover:bg-[#1e293b] border-gray-700/60'
-              }`}
+              style={{
+                padding: '0.6rem 1.1rem',
+                borderRadius: '10px',
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                border: viewMode === 'cockpit' ? '1px solid #818cf8' : '1px solid rgba(255,255,255,0.08)',
+                background: viewMode === 'cockpit' ? 'linear-gradient(135deg, #4f46e5, #6366f1)' : 'rgba(15,23,42,0.8)',
+                color: viewMode === 'cockpit' ? '#ffffff' : '#94a3b8',
+                boxShadow: viewMode === 'cockpit' ? '0 4px 14px rgba(79, 70, 229, 0.4)' : 'none',
+              }}
             >
-              <span className="text-base">📊</span>
+              <span>📊</span>
               <span>1. Trading Cockpit (Gráfico & Órdenes)</span>
             </button>
 
@@ -290,15 +309,25 @@ export function Dashboard() {
             <button
               type="button"
               onClick={() => setViewMode('historical_patterns')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 border relative ${
-                viewMode === 'historical_patterns'
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-lg shadow-purple-500/25 ring-2 ring-purple-400/40'
-                  : 'bg-[#18132b] text-purple-200 hover:text-white hover:bg-[#231a3d] border-purple-500/40'
-              }`}
+              style={{
+                padding: '0.6rem 1.1rem',
+                borderRadius: '10px',
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                border: viewMode === 'historical_patterns' ? '2px solid #a855f7' : '1px solid rgba(168,85,247,0.3)',
+                background: viewMode === 'historical_patterns' ? 'linear-gradient(135deg, #7c3aed, #9333ea)' : 'rgba(24,18,43,0.8)',
+                color: viewMode === 'historical_patterns' ? '#ffffff' : '#d8b4fe',
+                boxShadow: viewMode === 'historical_patterns' ? '0 4px 18px rgba(168, 85, 247, 0.4)' : 'none',
+              }}
             >
-              <span className="text-base">🏛️</span>
+              <span>🏛️</span>
               <span>2. Patrones Históricos 5-10 Años</span>
-              <span className="bg-purple-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-pulse">
+              <span style={{ fontSize: '0.65rem', background: '#ec4899', color: '#ffffff', padding: '0.15rem 0.5rem', borderRadius: '999px', fontWeight: 900 }}>
                 NUEVO 🔥
               </span>
             </button>
@@ -307,15 +336,25 @@ export function Dashboard() {
             <button
               type="button"
               onClick={() => setViewMode('macro_sentinel')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 border relative ${
-                viewMode === 'macro_sentinel'
-                  ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white border-rose-400 shadow-lg shadow-rose-500/25 ring-2 ring-rose-400/40'
-                  : 'bg-[#24131b] text-rose-200 hover:text-white hover:bg-[#341b27] border-rose-500/40'
-              }`}
+              style={{
+                padding: '0.6rem 1.1rem',
+                borderRadius: '10px',
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                border: viewMode === 'macro_sentinel' ? '2px solid #f43f5e' : '1px solid rgba(244,63,94,0.3)',
+                background: viewMode === 'macro_sentinel' ? 'linear-gradient(135deg, #e11d48, #f59e0b)' : 'rgba(36,19,27,0.8)',
+                color: viewMode === 'macro_sentinel' ? '#ffffff' : '#fda4af',
+                boxShadow: viewMode === 'macro_sentinel' ? '0 4px 18px rgba(244, 63, 94, 0.4)' : 'none',
+              }}
             >
-              <span className="text-base">🌐</span>
+              <span>🌐</span>
               <span>3. Macro, Noticias & Sentimiento</span>
-              <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+              <span style={{ fontSize: '0.65rem', background: '#f43f5e', color: '#ffffff', padding: '0.15rem 0.5rem', borderRadius: '999px', fontWeight: 900 }}>
                 VIX EN VIVO
               </span>
             </button>
