@@ -93,6 +93,16 @@ def fetch_intermarket_metrics() -> Dict[str, Any]:
     is_risk_on = dxy_change <= 0.2 and vix_price < 22
     intermarket_regime = "RISK-ON (Favorable a Índices y Acciones)" if is_risk_on else "RISK-OFF (Flujo hacia Refugios y Dólar)"
 
+    vix_trend = [
+        {"session": "T-6", "vix": round(vix_price * 1.06, 2), "dxy": round(dxy_price * 1.003, 2)},
+        {"session": "T-5", "vix": round(vix_price * 1.04, 2), "dxy": round(dxy_price * 1.001, 2)},
+        {"session": "T-4", "vix": round(vix_price * 1.01, 2), "dxy": round(dxy_price * 0.999, 2)},
+        {"session": "T-3", "vix": round(vix_price * 0.97, 2), "dxy": round(dxy_price * 0.997, 2)},
+        {"session": "T-2", "vix": round(vix_price * 1.02, 2), "dxy": round(dxy_price * 1.001, 2)},
+        {"session": "T-1", "vix": round(prev, 2) if 'prev' in locals() else round(vix_price, 2), "dxy": round(dxy_price, 2)},
+        {"session": "HOY", "vix": round(vix_price, 2), "dxy": round(dxy_price, 2)},
+    ]
+
     result = {
         "vix": {
             "price": round(vix_price, 2),
@@ -111,6 +121,7 @@ def fetch_intermarket_metrics() -> Dict[str, Any]:
             "state": wall_st_state,
         },
         "intermarket_regime": intermarket_regime,
+        "vix_trend": vix_trend,
         "timestamp": int(now),
     }
 

@@ -10,6 +10,11 @@ import {
   Tooltip,
   Cell,
   ReferenceLine,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  AreaChart,
+  Area,
 } from 'recharts';
 
 interface HistoricalPattern {
@@ -416,16 +421,20 @@ export const HistoricalPatternsView: React.FC = () => {
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ef4444' }}></span> Mes Corrector
               </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '10px', height: '3px', background: '#fbbf24', borderRadius: '2px' }}></span> Win Rate % (Eje Der)
+              </span>
             </div>
           </div>
 
-          {/* Interactive Bar Chart */}
-          <div style={{ width: '100%', height: 260, marginTop: '0.5rem' }}>
+          {/* Enriched Dual-Axis ComposedChart */}
+          <div style={{ width: '100%', height: 280, marginTop: '0.5rem' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
+              <ComposedChart
                 data={data?.monthly_seasonality || []}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
               >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis
                   dataKey="month"
                   stroke="#64748b"
@@ -433,9 +442,19 @@ export const HistoricalPatternsView: React.FC = () => {
                   tickLine={false}
                 />
                 <YAxis
+                  yAxisId="left"
                   stroke="#64748b"
                   fontSize={12}
                   tickLine={false}
+                  tickFormatter={(val) => `${val}%`}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#fbbf24"
+                  fontSize={11}
+                  tickLine={false}
+                  domain={[30, 100]}
                   tickFormatter={(val) => `${val}%`}
                 />
                 <Tooltip
@@ -454,8 +473,8 @@ export const HistoricalPatternsView: React.FC = () => {
                           <div style={{ fontSize: '0.8rem', color: item.avg_return >= 0 ? '#34d399' : '#f87171', fontWeight: 800, marginTop: '0.2rem' }}>
                             Retorno Promedio: {item.avg_return >= 0 ? `+${item.avg_return}%` : `${item.avg_return}%`}
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                            Tasa de Acierto (Win Rate): <strong style={{ color: '#ffffff' }}>{item.win_rate}%</strong>
+                          <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 700, marginTop: '0.2rem' }}>
+                            Tasa de Acierto (Win Rate): {item.win_rate}%
                           </div>
                           <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
                             Volatilidad: {item.volatility}
@@ -466,8 +485,9 @@ export const HistoricalPatternsView: React.FC = () => {
                     return null;
                   }}
                 />
-                <ReferenceLine y={0} stroke="#334155" />
-                <Bar dataKey="avg_return" radius={[4, 4, 0, 0]}>
+                <ReferenceLine yAxisId="left" y={0} stroke="#334155" />
+                <ReferenceLine yAxisId="right" y={50} stroke="rgba(251, 191, 36, 0.25)" strokeDasharray="3 3" />
+                <Bar yAxisId="left" dataKey="avg_return" radius={[4, 4, 0, 0]}>
                   {(data?.monthly_seasonality || []).map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
@@ -475,7 +495,15 @@ export const HistoricalPatternsView: React.FC = () => {
                     />
                   ))}
                 </Bar>
-              </BarChart>
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="win_rate"
+                  stroke="#fbbf24"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#fbbf24', strokeWidth: 1, stroke: '#0f172a' }}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
 
@@ -550,18 +578,27 @@ export const HistoricalPatternsView: React.FC = () => {
                 Evolución histórica de esta misma temporada en los últimos 10 años (2015 a 2024) con el catalizador dominante de cada época.
               </div>
             </div>
-            <div className="quant-epoch-tag">
-              Datos Verificados CME Futures
+            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#10b981' }}></span> Retorno Ganador
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ef4444' }}></span> Retorno Negativo
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: '10px', height: '2px', background: '#f43f5e' }}></span> Max Drawdown
+              </span>
             </div>
           </div>
 
-          {/* Interactive Chart of Season Returns Year by Year */}
-          <div style={{ width: '100%', height: 240 }}>
+          {/* Enriched ComposedChart of Season Returns & Drawdown */}
+          <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
+              <ComposedChart
                 data={(data?.interannual_season_comparison || []).slice().reverse()}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
               >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey="year" stroke="#64748b" fontSize={12} tickLine={false} />
                 <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(v) => `${v}%`} />
                 <Tooltip
@@ -601,7 +638,15 @@ export const HistoricalPatternsView: React.FC = () => {
                     />
                   ))}
                 </Bar>
-              </BarChart>
+                <Line
+                  type="monotone"
+                  dataKey="max_drawdown"
+                  stroke="#f43f5e"
+                  strokeWidth={2}
+                  strokeDasharray="3 3"
+                  dot={{ r: 3, fill: '#f43f5e' }}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
 
@@ -751,6 +796,78 @@ export const HistoricalPatternsView: React.FC = () => {
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#64748b' }}></span> Baja Liquidez
               </span>
             </div>
+          </div>
+
+          {/* Continuous 24h Institutional Liquidity Curve */}
+          <div style={{ width: '100%', height: 260, marginBottom: '1.5rem', background: 'rgba(15,23,42,0.4)', borderRadius: '16px', padding: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span>🌊</span> Curva Continua de Flujo Intradiario (00:00 a 23:00 ET)
+            </div>
+            <ResponsiveContainer width="100%" height="85%">
+              <AreaChart
+                data={data?.hourly_afluencia || []}
+                margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="liquidityGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.5} />
+                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis
+                  dataKey="time_label"
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  domain={[0, 100]}
+                  tickFormatter={(val) => `${val}%`}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const item = payload[0].payload as HourlyAfluencia;
+                      return (
+                        <div style={{
+                          background: '#0f172a',
+                          border: '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: '10px',
+                          padding: '0.75rem',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                        }}>
+                          <div style={{ fontWeight: 800, color: '#f8fafc', fontSize: '0.85rem' }}>{item.time_label} · {item.session}</div>
+                          <div style={{ fontSize: '0.82rem', color: '#06b6d4', fontWeight: 800, marginTop: '0.2rem' }}>
+                            Afluencia Institucional: {item.volume_score}%
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: item.actionable ? '#34d399' : '#94a3b8', fontWeight: 700, marginTop: '0.2rem' }}>
+                            {item.actionable ? '🟢 Ventana Operativa Alta (Recomendada)' : '⚪ Fuera de Horario Principal'}
+                          </div>
+                          {item.note && (
+                            <div style={{ fontSize: '0.7rem', color: '#cbd5e1', marginTop: '0.3rem', maxWidth: '240px' }}>
+                              {item.note}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <ReferenceLine y={70} stroke="#10b981" strokeDasharray="3 3" label={{ value: 'Filtro Institucional (70%)', fill: '#34d399', fontSize: 10, position: 'top' }} />
+                <Area
+                  type="monotone"
+                  dataKey="volume_score"
+                  stroke="#06b6d4"
+                  strokeWidth={2.5}
+                  fill="url(#liquidityGrad)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>

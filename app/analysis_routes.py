@@ -398,5 +398,16 @@ def get_news_lockout_status_endpoint() -> Dict[str, Any]:
     return check_news_lockout()
 
 
+@router.get("/live-news")
+def get_live_financial_news_endpoint(force_refresh: bool = Query(False)) -> List[Dict[str, Any]]:
+    """Retrieves real-time live financial news from institutional RSS feeds with sentiment and tactical impact."""
+    from app.live_news_service import fetch_live_financial_news
+    try:
+        return fetch_live_financial_news(force_refresh=force_refresh)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+
 
 
