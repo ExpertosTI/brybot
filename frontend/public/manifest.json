@@ -1,0 +1,19 @@
+{
+  "name": "RENACE Trading Lab",
+  "short_name": "RENACE",
+  "description": "Pulsos de mercado institucional y confluencias cuantitativas en tiempo real",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#0d131f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/renace_symbol.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity", "utilities"]
+}

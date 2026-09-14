@@ -15,7 +15,12 @@ logger = logging.getLogger(__name__)
 # State for strict anti-spam & deduplication
 _LAST_DISPATCHED_OPPORTUNITIES: Dict[str, Dict[str, Any]] = {}
 _LAST_CIRCUIT_BREAKER_NOTIFIED: bool = False
-OPPORTUNITY_COOLDOWN_SECONDS = 3600  # 1 hour minimum between duplicate alerts for the same symbol/direction
+OPPORTUNITY_COOLDOWN_SECONDS = 7200  # 2 hours minimum between duplicate alerts for the same symbol
+GLOBAL_DISPATCH_COOLDOWN_SECONDS = 7200  # 2 hours minimum between ANY automated notification
+MAX_DAILY_AUTOMATED_SIGNALS = 2  # Maximum 2 automated trade signals per day
+_LAST_GLOBAL_DISPATCH_TIME: float = 0.0
+_DAILY_AUTOMATED_SIGNALS_COUNT: int = 0
+_LAST_DAILY_COUNT_DATE: str = ""
 
 CORE_WATCHLIST = ["NQ", "ES", "BTC", "GC", "SOL"]
 
@@ -180,7 +185,15 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
     - Strict 1-hour anti-spam cooldown per asset.
     """
     global _LAST_DISPATCHED_OPPORTUNITIES, _LAST_CIRCUIT_BREAKER_NOTIFIED
+    global _LAST_GLOBAL_DISPATCH_TIME, _DAILY_AUTOMATED_SIGNALS_COUNT, _LAST_DAILY_COUNT_DATE
     now = time.time()
+    now_dt = datetime.now()
+    today_str = now_dt.strftime("%Y-%m-%d")
+
+    # Reset daily count on new date
+    if _LAST_DAILY_COUNT_DATE != today_str:
+        _LAST_DAILY_COUNT_DATE = today_str
+        _DAILY_AUTOMATED_SIGNALS_COUNT = 0
 
     # Morning Opening Briefing Check (dispatched once on trading days)
     try:
@@ -188,6 +201,24 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
     except Exception as exc:
         logger.warning(f"Could not dispatch morning bell: {exc}")
 
+    # If automated, apply strict minimalist filters (no noise, no spam)
+    if not force:
+        # 1. Trading hours filter: Golden Window only (09:30 AM to 11:45 AM ET)
+        current_minute = now_dt.hour * 60 + now_dt.minute
+        if not (570 <= current_minute <= 705):
+            logger.debug("Scanner: Outside Golden Trading Window (09:30-11:45 ET). Muting automated alerts.")
+            return []
+
+        # 2. Maximum daily automated signals (Max 2 per day)
+        if _DAILY_AUTOMATED_SIGNALS_COUNT >= MAX_DAILY_AUTOMATED_SIGNALS:
+            logger.debug(f"Scanner: Max daily automated signals ({MAX_DAILY_AUTOMATED_SIGNALS}) reached.")
+            return []
+
+        # 3. Global cooldown across all assets (Min 2 hours between ANY message)
+        if (now - _LAST_GLOBAL_DISPATCH_TIME) < GLOBAL_DISPATCH_COOLDOWN_SECONDS:
+            rem_min = int((GLOBAL_DISPATCH_COOLDOWN_SECONDS - (now - _LAST_GLOBAL_DISPATCH_TIME)) / 60)
+            logger.debug(f"Scanner: Global dispatch cooldown active ({rem_min} min remaining).")
+            return []
 
     from app.strategy import get_3hour_trend, daily_risk_guardian
 
@@ -244,8 +275,9 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
                         conf = advice.get("confidence", 70)
                         rec = advice.get("recommendation", "HOLD")
 
-                        # Only high-confidence signals matching 3H trend direction
-                        if conf >= 88 and (
+                        # Only ultra high-confidence signals matching 3H trend direction (>=92% for automated)
+                        min_conf_req = 88 if force else 92
+                        if conf >= min_conf_req and (
                             (is_3h_bull and rec in ("BUY", "LONG")) or (is_3h_bear and rec in ("SELL", "SHORT"))
                         ):
                             valid_opportunities.append({
@@ -281,7 +313,7 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
             last_time = last_disp.get("time", 0)
             last_side = last_disp.get("side")
             last_price = last_disp.get("price", 0)
-            # If same direction sent less than 1h ago and price change < 0.6%, skip dispatch!
+            # If same direction sent less than 2h ago and price change < 0.6%, skip dispatch!
             price_change_ratio = abs(best_opportunity["price"] - last_price) / last_price if last_price > 0 else 1
             if (now - last_time) < OPPORTUNITY_COOLDOWN_SECONDS and last_side == side and price_change_ratio < 0.006:
                 logger.info(f"Scanner: Skipping duplicate alert for {sym} ({side}) - cooldown active.")
@@ -319,6 +351,9 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
             "side": bo["side"],
             "price": bo["price"],
         }
+        if not force:
+            _LAST_GLOBAL_DISPATCH_TIME = now
+            _DAILY_AUTOMATED_SIGNALS_COUNT += 1
     elif force:
         # Only when explicitly forced from UI
         ctx = get_six_year_market_context("NQ")

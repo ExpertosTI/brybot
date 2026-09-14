@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 import Integrations from './pages/Integrations';
+import { ScreenPulseNotifier } from './components/common/ScreenPulseNotifier';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -15,6 +16,7 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScreenPulseNotifier />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
