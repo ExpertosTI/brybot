@@ -4,8 +4,10 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 from app.real_market_data import fetch_real_ohlc
 

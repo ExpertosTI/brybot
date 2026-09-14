@@ -21,17 +21,18 @@ tradovate_ws_manager = TradovateWebSocketManager(env="demo")
 tradovate_risk_manager = TradovateRiskManager(tradovate_ws_manager, tradovate_client)
 
 async def periodic_real_market_scanner():
-    """Background task to continuously scan real market data and dispatch bullish WhatsApp signals."""
+    """Background task to continuously scan real market data and dispatch WhatsApp signals."""
     from app.real_market_scanner import scan_and_notify_opportunities
     import logging
     _logger = logging.getLogger(__name__)
-    await asyncio.sleep(20)  # Initial warm-up delay
+    await asyncio.sleep(10)  # Initial warm-up delay
     while True:
         try:
-            scan_and_notify_opportunities()
+            await asyncio.to_thread(scan_and_notify_opportunities)
         except Exception as e:
-            _logger.error(f"Periodic scanner error: {e}")
+            _logger.error(f"Periodic scanner error: {e}", exc_info=True)
         await asyncio.sleep(300)  # Run every 5 minutes
+
 
 
 def ensure_admin_user():

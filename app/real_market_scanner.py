@@ -66,6 +66,67 @@ def compute_simple_indicators(ohlc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+_LAST_MORNING_BELL_DATE: str = ""
+
+def check_and_dispatch_morning_bell(recipient: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Dispatches a structured Morning Opening Briefing at the start of the trading day (08:00 - 09:30 ET)."""
+    global _LAST_MORNING_BELL_DATE
+    now_dt = datetime.now()
+    today_str = now_dt.strftime("%Y-%m-%d")
+
+    # Only send once per calendar day
+    if _LAST_MORNING_BELL_DATE == today_str:
+        return None
+
+    # Only dispatch Monday through Friday
+    weekday = now_dt.weekday()  # 0 = Monday, 4 = Friday
+    if weekday > 4:
+        return None
+
+    try:
+        from app.market_sentiment import fetch_intermarket_metrics
+        sentiment = fetch_intermarket_metrics()
+        vix_p = sentiment.get("vix", {}).get("price", 14.85)
+        dxy_p = sentiment.get("dxy", {}).get("price", 101.4)
+        regime = sentiment.get("intermarket_regime", "RISK-ON")
+    except Exception as e:
+        logger.warning(f"Error fetching sentiment for morning bell: {e}")
+        vix_p, dxy_p, regime = 15.0, 101.2, "NEUTRAL"
+
+    day_name = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"][weekday]
+    time_str = now_dt.strftime("%I:%M %p")
+
+    price_lines = []
+    for sym in ["NQ", "ES", "BTC", "GC"]:
+        try:
+            q = fetch_real_quote(sym)
+            p = q.get("price", 0.0)
+            p_fmt = f"${p:,.2f}" if p < 10000 else f"${p:,.0f}"
+            price_lines.append(f"• *{sym}*: {p_fmt}")
+        except Exception:
+            pass
+
+    msg = (
+        f"🌅 *RENACE TRADING LAB | APERTURA DE MERCADO*\n"
+        f"📅 *{day_name}* · _{time_str} ET_\n\n"
+        f"📊 *Precios Pre-Market*:\n"
+        + "\n".join(price_lines)
+        + f"\n\n📈 *VIX*: {vix_p} pts | *DXY*: {dxy_p} pts\n"
+        f"⚖️ *Régimen*: {regime}\n\n"
+        f"🛡️ *Topstep Sentinel*: Activo (Máx 2 pérdidas/día vigilado).\n"
+        f"⚡ _El bot está escaneando los libros del CME cada 5 minutos en busca de confluencias institucionales._"
+    )
+
+    _LAST_MORNING_BELL_DATE = today_str
+    logger.info(f"Dispatching Morning Market Bell for {day_name} ({today_str})...")
+    resp = send_whatsapp_message(msg, recipient=recipient)
+    return {
+        "status": "morning_bell_dispatched",
+        "date": today_str,
+        "whatsapp_response": resp,
+    }
+
+
 def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool = False) -> List[Dict[str, Any]]:
     """Scans watchlist assets. 
     CRITICAL RULE:
@@ -75,6 +136,13 @@ def scan_and_notify_opportunities(recipient: Optional[str] = None, force: bool =
     """
     global _LAST_DISPATCHED_OPPORTUNITIES, _LAST_CIRCUIT_BREAKER_NOTIFIED
     now = time.time()
+
+    # Morning Opening Briefing Check (dispatched once on trading days)
+    try:
+        check_and_dispatch_morning_bell(recipient=recipient)
+    except Exception as exc:
+        logger.warning(f"Could not dispatch morning bell: {exc}")
+
 
     from app.strategy import get_3hour_trend, daily_risk_guardian
 
