@@ -730,13 +730,13 @@ export const HistoricalPatternsView: React.FC = () => {
                   <div className="quant-news-stats-row">
                     <div className="quant-news-stat-item">
                       <span>Win Rate Alcista</span>
-                      <strong style={{ color: analog.historical_winrate_long >= 60 ? '#34d399' : '#f87171' }}>
+                      <strong style={{ color: analog.historical_winrate_long >= 60 ? '#059669' : '#dc2626' }}>
                         {analog.historical_winrate_long}%
                       </strong>
                     </div>
                     <div className="quant-news-stat-item">
                       <span>Vela 15m Promedio</span>
-                      <strong style={{ color: '#fbbf24' }}>±{analog.avg_15m_range_pts} pts</strong>
+                      <strong style={{ color: '#b45309' }}>±{analog.avg_15m_range_pts} pts</strong>
                     </div>
                   </div>
                 </div>
@@ -749,7 +749,7 @@ export const HistoricalPatternsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', marginBottom: '0.5rem' }}>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#475569', marginBottom: '0.5rem' }}>
                     Últimos Precedentes Históricos Verificados:
                   </div>
                   <div className="quant-occurrences-grid">

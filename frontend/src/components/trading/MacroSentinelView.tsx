@@ -251,18 +251,21 @@ export const MacroSentinelView: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. Breaking News Live Ticker (Marquee) */}
+      {/* 2. Breaking News Live Ticker (White Book / Editorial Marquee) */}
       {currentTickerStory && (
         <section className="quant-live-news-ticker">
           <div className="quant-ticker-badge">
             <span>⚡ ÚLTIMA HORA</span>
           </div>
           <div className="quant-ticker-content">
-            <strong style={{ color: currentTickerStory.impact_color, marginRight: '0.5rem' }}>
+            <strong style={{
+              color: currentTickerStory.sentiment === 'BULLISH' ? '#047857' : currentTickerStory.sentiment === 'BEARISH' ? '#b91c1c' : '#b45309',
+              marginRight: '0.5rem'
+            }}>
               [{currentTickerStory.sentiment_label}]
             </strong>
-            <span style={{ color: '#ffffff' }}>{currentTickerStory.title}</span>
-            <span style={{ color: '#94a3b8', marginLeft: '0.75rem', fontSize: '0.75rem' }}>
+            <span style={{ color: '#0f172a', fontWeight: 700 }}>{currentTickerStory.title}</span>
+            <span style={{ color: '#64748b', marginLeft: '0.75rem', fontSize: '0.75rem' }}>
               — {currentTickerStory.source} ({currentTickerStory.time_ago})
             </span>
           </div>
@@ -378,9 +381,25 @@ export const MacroSentinelView: React.FC = () => {
         <section className="quant-panel">
           <div className="quant-panel-header">
             <div>
-              <h3 className="quant-panel-title">
-                <span>📰</span> Wire de Noticias Financieras en Vivo ({filteredNews.length} Noticias)
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <h3 className="quant-panel-title">
+                  <span>📰</span> Wire de Noticias Financieras en Vivo ({filteredNews.length} Noticias)
+                </h3>
+                <span style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#f8fafc',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  padding: '0.2rem 0.55rem',
+                  borderRadius: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}>
+                  📖 Formato Libro / Editorial (Fondo Blanco Amigable)
+                </span>
+              </div>
               <div className="quant-panel-subtitle">
                 Titulares en tiempo real extraídos directamente de Yahoo Finance y MarketWatch con evaluación de impacto institucional en futuros CME.
               </div>
@@ -426,7 +445,7 @@ export const MacroSentinelView: React.FC = () => {
             </div>
           </div>
 
-          {/* Live Wire Cards Grid */}
+          {/* Live Wire Cards Grid (White Book / Editorial Reader Style) */}
           <div className="quant-live-wire-grid">
             {filteredNews.map((news) => (
               <div key={news.id} className="quant-news-wire-card">
@@ -441,14 +460,14 @@ export const MacroSentinelView: React.FC = () => {
                   <span
                     className="quant-news-sentiment-badge"
                     style={{
-                      background: news.sentiment === 'BULLISH' ? 'rgba(16,185,129,0.15)' : news.sentiment === 'BEARISH' ? 'rgba(244,63,94,0.15)' : 'rgba(245,158,11,0.15)',
-                      color: news.impact_color,
-                      border: `1px solid ${news.impact_color}44`,
+                      background: news.sentiment === 'BULLISH' ? '#ecfdf5' : news.sentiment === 'BEARISH' ? '#fff1f2' : '#fffbeb',
+                      color: news.sentiment === 'BULLISH' ? '#065f46' : news.sentiment === 'BEARISH' ? '#9f1239' : '#92400e',
+                      border: news.sentiment === 'BULLISH' ? '1px solid #a7f3d0' : news.sentiment === 'BEARISH' ? '1px solid #fecdd3' : '1px solid #fde68a',
                     }}
                   >
                     {news.sentiment_label}
                   </span>
-                  <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600 }}>
                     {news.category_label}
                   </span>
                 </div>
@@ -469,8 +488,18 @@ export const MacroSentinelView: React.FC = () => {
                 )}
 
                 {/* Tactical Takeaway for CME Futures Traders */}
-                <div className="quant-tactical-takeaway" style={{ borderLeftColor: news.impact_color }}>
-                  <div className="quant-tactical-title" style={{ color: news.impact_color }}>
+                <div
+                  className="quant-tactical-takeaway"
+                  style={{
+                    borderLeftColor: news.sentiment === 'BULLISH' ? '#10b981' : news.sentiment === 'BEARISH' ? '#ef4444' : '#f59e0b'
+                  }}
+                >
+                  <div
+                    className="quant-tactical-title"
+                    style={{
+                      color: news.sentiment === 'BULLISH' ? '#047857' : news.sentiment === 'BEARISH' ? '#b91c1c' : '#b45309'
+                    }}
+                  >
                     🎯 Impacto Táctico para Operativa:
                   </div>
                   <div className="quant-tactical-desc">
@@ -479,9 +508,9 @@ export const MacroSentinelView: React.FC = () => {
                 </div>
 
                 {/* Footer with Affected Assets */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '0.65rem', borderTop: '1px solid #e2e8f0' }}>
                   <div className="quant-affected-badges">
-                    <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Afecta a:</span>
+                    <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>Afecta:</span>
                     {news.affected_assets.map((asset) => (
                       <span key={asset} className="quant-asset-tag">
                         #{asset}
@@ -494,9 +523,9 @@ export const MacroSentinelView: React.FC = () => {
                       href={news.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ fontSize: '0.72rem', color: '#818cf8', textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                      style={{ fontSize: '0.75rem', color: '#4f46e5', textDecoration: 'none', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                     >
-                      Fuente ↗
+                      Leer artículo completo ↗
                     </a>
                   )}
                 </div>
