@@ -356,7 +356,7 @@ export const HistoricalPatternsView: React.FC = () => {
             <div className="quant-step-box">
               <span className="quant-step-title">🛡️ Gestión de Riesgo</span>
               <span className="quant-step-value">
-                Máx 2 Pérdidas / Día
+                Ratio 1:2.0 Asimétrico
               </span>
             </div>
             <div className="quant-step-box">

@@ -152,7 +152,7 @@ Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
         "detailed_analysis": (
             f"Estructura institucional en {sym}: Confluencia con la tendencia macro de 3 Horas ({trend_3h_label}). "
             f"El precio realizó retroceso técnico hacia la EMA 20 y mitigó el Fair Value Gap con RSI en {rsi:.1f}. "
-            f"El trade cumple con el estricto ratio 1:2.0 y respeta el límite de máximo 2 pérdidas al día."
+            f"El trade cumple con el estricto ratio 1:2.0 y una adecuada disciplina operativa."
         ),
         "whatsapp_message": (
             f"⚡ *RENACE LAB | SEÑAL 3H*\n"
@@ -162,7 +162,7 @@ Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
             f"🛑 *Stop Loss*: ${sl_price:,.2f} (-{sl_ticks} ticks)\n"
             f"🎯 *Take Profit*: ${tp_price:,.2f} (+{tp_ticks} ticks)\n"
             f"📊 *Ratio R:B*: 1:2.0 | *Confianza*: 92%\n"
-            f"💡 *Motivo*: Confluencia de Tendencia 3H + FVG + Máx 2 Pérdidas/Día."
+            f"💡 *Motivo*: Confluencia de Tendencia 3H + FVG (Ratio 1:2)."
         ),
         "ai_engine": "Gemini Quant Cognitive Engine (Integrated)",
     }
